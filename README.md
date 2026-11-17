@@ -33,6 +33,30 @@ netlify deploy --build --prod
    notes vocales (enregistrement direct ou import), vidéos (lien), lieux (bouton « Ma position » ou coordonnées).
 4. Enregistrer. Les visiteurs voient le jour immédiatement.
 
+## Courses Coros (automatique)
+
+Les courses à pied et trails (types Coros : course extérieure, tapis, trail, piste) remontent toutes seules :
+une fonction planifiée (`netlify/functions/coros-sync.mjs`, toutes les 30 min) lit ton compte Coros via son serveur MCP
+(OAuth 2.0), range les courses dans Netlify Blobs et le site les affiche (distance, durée, allure, D+, FC, tracé GPS).
+Ça tourne sans aucune visite du site. Les autres sports sont ignorés.
+
+**Connexion (une seule fois)** : sur `/admin`, touche « Connecter Coros », connecte-toi chez Coros et autorise.
+La ligne de statut en haut de l'admin indique ensuite la dernière synchro (et la dernière erreur éventuelle).
+Le bouton « Synchroniser » force une synchro immédiate.
+
+Variables d'environnement facultatives :
+- `COROS_REGION` : `eu` (défaut), `us` ou `cn` selon la région de ton compte Coros ;
+- `COROS_SYNC_FROM` : date plancher `AAAA-MM-JJ` (défaut `2026-11-15`, arrivée en Nouvelle-Zélande) ; les courses plus anciennes sont ignorées.
+
+Notes : Netlify n'exécute les fonctions planifiées que sur le déploiement de production. Chaque synchro traite au plus
+3 nouvelles courses (limite de durée des fonctions) ; le reste suit à l'exécution suivante. Si Coros change le format de ses
+réponses, la synchro s'arrête avec une erreur visible dans la ligne de statut sans casser le site.
+
+## Tests
+```bash
+npm test      # node --test : décodeur FIT, client OAuth/MCP Coros (faux serveur), API
+```
+
 ## Limites à connaître
 - Chaque fichier envoyé fait **5 Mo max** (limite de 6 Mo par requête des fonctions Netlify). Les photos sont réduites
   à 1600 px (~300–600 Ko), donc sans souci. Les vidéos ne sont **pas hébergées** : colle un lien YouTube/Vimeo
