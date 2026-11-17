@@ -1,6 +1,6 @@
 import {
   api, getToken, setToken, mediaUrl, esc, md, ymd, parseYmd, fmtLong, fmtMonth,
-  videoEmbed, osmLink, loadLeaflet, addTiles,
+  videoEmbed, osmLink, loadLeaflet, addTiles, fmtDur, fmtPace, fmtKm, actLabel, actTitle,
 } from "./common.js";
 
 const ADMIN = document.body.dataset.admin === "1";
@@ -9,23 +9,34 @@ const $ = (s) => document.querySelector(s);
 
 let entries = [];
 let byDate = {};
+let activities = [];
+let actsByDate = {};
 const today = new Date();
 let cur = { y: today.getFullYear(), m: today.getMonth() };
 let bigMap = null;
-let miniMap = null;
+let maps = [];
 
 /* ---------- Données ---------- */
 
 async function load() {
-  const r = await api("/entries");
+  const [r, a] = await Promise.all([api("/entries"), api("/activities").catch(() => ({ activities: [] }))]);
   entries = r.entries || [];
   byDate = Object.fromEntries(entries.map((e) => [e.date, e]));
+  activities = a.activities || [];
+  actsByDate = {};
+  for (const x of activities) (actsByDate[x.date] ||= []).push(x);
 }
+
+const hasDay = (d) => !!(byDate[d] || actsByDate[d]);
+const allDates = () => [...new Set([...entries.map((e) => e.date), ...activities.map((a) => a.date)])].sort();
+/** Une fiche, réelle ou synthétisée à partir des seules courses du jour. */
+const dayOf = (d) => byDate[d] || { date: d, title: "", text: "", photos: [], audios: [], videos: [], places: [], synthetic: true };
 
 function pickInitialMonth() {
   const here = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  if (!entries.length || entries.some((e) => e.date.startsWith(here))) return;
-  const last = parseYmd(entries[entries.length - 1].date);
+  const dates = allDates();
+  if (!dates.length || dates.some((d) => d.startsWith(here))) return;
+  const last = parseYmd(dates[dates.length - 1]);
   cur = { y: last.getFullYear(), m: last.getMonth() };
 }
 
@@ -45,32 +56,35 @@ function renderCalendar() {
   for (let d = 1; d <= nDays; d++) {
     const ds = ymd(new Date(cur.y, cur.m, d));
     const e = byDate[ds];
+    const acts = actsByDate[ds] || [];
+    const day = !!(e || acts.length);
     const cls = ["cell"];
     if (ds === todayStr) cls.push("today");
-    if (e) cls.push("has");
+    if (day) cls.push("has");
     const thumb = e?.photos?.[0]?.thumb || e?.photos?.[0]?.key;
     if (thumb) cls.push("photo");
     const style = thumb ? ` style="--bg:url('${mediaUrl(thumb)}')"` : "";
-    const badges = e
-      ? `<span class="badges">${e.audios?.length ? "🎙" : ""}${e.videos?.length ? "▶" : ""}${e.places?.length ? "📍" : ""}</span>`
+    const label = e?.title || (acts.length ? "🏃 " + acts.map((a) => fmtKm(a.distanceKm || 0) + " km").join(" + ") : "");
+    const badges = day
+      ? `<span class="badges">${acts.length ? "🏃" : ""}${e?.audios?.length ? "🎙" : ""}${e?.videos?.length ? "▶" : ""}${e?.places?.length ? "📍" : ""}</span>`
       : "";
-    const inner = `<span class="n">${d}</span>${e ? `<span class="t">${esc(e.title || "")}</span>${badges}` : ""}`;
-    if (e || ADMIN) {
-      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${e ? " : " + esc(e.title || "") : ""}">${inner}</button>`;
+    const inner = `<span class="n">${d}</span>${day ? `<span class="t">${esc(label)}</span>${badges}` : ""}`;
+    if (day || ADMIN) {
+      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}">${inner}</button>`;
     } else {
       html += `<div class="${cls.join(" ")}">${inner}</div>`;
     }
   }
   $("#grid").innerHTML = html;
   const empty = $("#empty");
-  if (empty) empty.hidden = entries.length > 0;
+  if (empty) empty.hidden = allDates().length > 0;
 }
 
 $("#grid").addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-date]");
   if (!b) return;
   const date = b.dataset.date;
-  if (byDate[date]) go(date);
+  if (hasDay(date)) go(date);
   else if (ADMIN) edit(date);
 });
 
@@ -92,7 +106,8 @@ document.querySelectorAll(".tabs button").forEach((b) => {
 async function showBigMap() {
   const note = $("#mapnote");
   const points = entries.flatMap((e) => (e.places || []).map((p) => ({ ...p, date: e.date })));
-  note.textContent = points.length ? "" : "Aucun lieu renseigné pour l'instant.";
+  const tracks = activities.filter((a) => a.track?.length > 1);
+  note.textContent = points.length || tracks.length ? "" : "Aucun lieu renseigné pour l'instant.";
   try {
     const L = await loadLeaflet();
     if (!bigMap) {
@@ -101,15 +116,21 @@ async function showBigMap() {
     }
     bigMap.eachLayer((l) => { if (!(l instanceof L.TileLayer)) bigMap.removeLayer(l); });
     setTimeout(() => bigMap.invalidateSize(), 50);
-    if (!points.length) return;
+    if (!points.length && !tracks.length) return;
     const latlngs = points.map((p) => [p.lat, p.lng]);
-    L.polyline(latlngs, { color: "#2f6f55", weight: 3, opacity: 0.6, dashArray: "6 6" }).addTo(bigMap);
+    if (latlngs.length > 1) L.polyline(latlngs, { color: "#2f6f55", weight: 3, opacity: 0.6, dashArray: "6 6" }).addTo(bigMap);
+    for (const a of tracks) {
+      L.polyline(a.track, { color: "#c5603a", weight: 4, opacity: 0.9 })
+        .addTo(bigMap)
+        .bindPopup(`<strong>${esc(actTitle(a))}</strong><br><a href="#${a.date}">${esc(fmtLong(a.date))}</a>`);
+      latlngs.push(...a.track);
+    }
     for (const p of points) {
       L.marker([p.lat, p.lng])
         .addTo(bigMap)
         .bindPopup(`<strong>${esc(p.name)}</strong><br><a href="#${p.date}">${esc(fmtLong(p.date))}</a>`);
     }
-    bigMap.fitBounds(latlngs, { padding: [30, 30], maxZoom: 12 });
+    bigMap.fitBounds(latlngs, { padding: [30, 30], maxZoom: 14 });
   } catch (e) {
     note.textContent = e.message;
   }
@@ -129,7 +150,7 @@ function closeDay() {
 
 function route() {
   const d = location.hash.slice(1);
-  if (DATE_RE.test(d) && byDate[d]) showDay(d);
+  if (DATE_RE.test(d) && hasDay(d)) showDay(d);
   else hideDay();
 }
 
@@ -137,19 +158,26 @@ function hideDay() {
   const sheet = $("#day");
   sheet.hidden = true;
   sheet.innerHTML = "";
-  if (miniMap) { miniMap.remove(); miniMap = null; }
+  clearMaps();
   updateLock();
 }
 
+function clearMaps() {
+  maps.forEach((m) => m.remove());
+  maps = [];
+}
+
 function showDay(date) {
-  const e = byDate[date];
+  const e = dayOf(date);
+  const acts = actsByDate[date] || [];
   const dt = parseYmd(date);
   cur = { y: dt.getFullYear(), m: dt.getMonth() };
   renderCalendar();
 
-  const idx = entries.findIndex((x) => x.date === date);
-  const prev = entries[idx - 1];
-  const next = entries[idx + 1];
+  const dates = allDates();
+  const idx = dates.indexOf(date);
+  const prev = dates[idx - 1] ? { date: dates[idx - 1] } : null;
+  const next = dates[idx + 1] ? { date: dates[idx + 1] } : null;
   const sheet = $("#day");
 
   const photos = (e.photos || [])
@@ -161,6 +189,23 @@ function showDay(date) {
   const videos = (e.videos || [])
     .map((v) => `<div class="video">${v.title ? `<p class="vt">${esc(v.title)}</p>` : ""}${videoEmbed(v.url)}</div>`)
     .join("");
+  const runs = acts
+    .map((a, i) => {
+      const stats = [
+        ["Distance", a.distanceKm ? `${fmtKm(a.distanceKm)} km` : null],
+        ["Durée", a.durationSec ? fmtDur(a.durationSec) : null],
+        ["Allure", a.paceSecPerKm ? `${fmtPace(a.paceSecPerKm)} /km` : null],
+        ["Dénivelé +", a.elevGain != null ? `${a.elevGain} m` : null],
+        ["FC moy.", a.avgHr ? `${a.avgHr} bpm` : null],
+        ["Cadence", a.cadence ? `${a.cadence} spm` : null],
+      ].filter(([, v]) => v);
+      return `<section class="run">
+        <h3>🏃 ${esc(actLabel(a))}${a.location ? ` <span class="muted">· ${esc(a.location)}</span>` : ""}</h3>
+        <dl class="stats">${stats.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+        ${a.track?.length > 1 ? `<div class="trackmap" data-i="${i}"></div>` : ""}
+      </section>`;
+    })
+    .join("");
   const places = (e.places || [])
     .map((p) => `<li><a href="${osmLink(p.lat, p.lng)}" target="_blank" rel="noopener">${esc(p.name)}</a> <span class="muted">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</span></li>`)
     .join("");
@@ -170,15 +215,16 @@ function showDay(date) {
       <div class="sheet-bar">
         <button id="sclose">✕ Fermer</button>
         <div class="sheet-nav">
-          ${ADMIN ? `<button id="sedit" class="primary">Modifier</button>` : ""}
+          ${ADMIN ? `<button id="sedit" class="primary">${e.synthetic ? "Écrire ce jour" : "Modifier"}</button>` : ""}
           <button id="sprev" ${prev ? "" : "disabled"} aria-label="Jour précédent">‹</button>
           <button id="snext" ${next ? "" : "disabled"} aria-label="Jour suivant">›</button>
         </div>
       </div>
       <article>
         <p class="kicker">${esc(fmtLong(date))}</p>
-        <h2>${esc(e.title || "Sans titre")}</h2>
+        <h2>${esc(e.title || (acts.length ? acts.map(actTitle).join(" + ") : "Sans titre"))}</h2>
         ${e.text ? `<div class="prose">${md(e.text)}</div>` : ""}
+        ${runs}
         ${photos ? `<div class="gallery">${photos}</div>` : ""}
         ${audios ? `<div class="block">${audios}</div>` : ""}
         ${videos ? `<div class="block">${videos}</div>` : ""}
@@ -197,23 +243,40 @@ function showDay(date) {
     const f = ev.target.closest("figure");
     if (f) openLightbox(e.photos, Number(f.dataset.i));
   });
-  if (e.places?.length) initMiniMap(e.places);
+  initMaps(e.places || [], acts);
 }
 
-async function initMiniMap(places) {
+async function initMaps(places, acts) {
+  const trackEls = [...document.querySelectorAll(".trackmap")];
+  if (!places.length && !trackEls.length) return;
   try {
     const L = await loadLeaflet();
-    const el = document.getElementById("minimap");
-    if (!el) return;
-    if (miniMap) miniMap.remove();
-    miniMap = L.map(el, { scrollWheelZoom: false });
-    addTiles(L, miniMap);
-    const pts = places.map((p) => [p.lat, p.lng]);
-    places.forEach((p) => L.marker([p.lat, p.lng]).addTo(miniMap).bindPopup(esc(p.name)));
-    if (pts.length === 1) miniMap.setView(pts[0], 12);
-    else miniMap.fitBounds(pts, { padding: [24, 24], maxZoom: 13 });
+    const mk = (el) => {
+      const m = L.map(el, { scrollWheelZoom: false });
+      addTiles(L, m);
+      maps.push(m);
+      return m;
+    };
+    const mini = document.getElementById("minimap");
+    if (mini && places.length) {
+      const m = mk(mini);
+      const pts = places.map((p) => [p.lat, p.lng]);
+      places.forEach((p) => L.marker([p.lat, p.lng]).addTo(m).bindPopup(esc(p.name)));
+      if (pts.length === 1) m.setView(pts[0], 12);
+      else m.fitBounds(pts, { padding: [24, 24], maxZoom: 13 });
+    }
+    for (const el of trackEls) {
+      const a = acts[Number(el.dataset.i)];
+      if (!a?.track?.length) continue;
+      const m = mk(el);
+      const line = L.polyline(a.track, { color: "#c5603a", weight: 4 }).addTo(m);
+      L.circleMarker(a.track[0], { radius: 6, color: "#2f6f55", fillColor: "#2f6f55", fillOpacity: 1 }).addTo(m);
+      L.circleMarker(a.track.at(-1), { radius: 6, color: "#c5603a", fillColor: "#fff", fillOpacity: 1 }).addTo(m);
+      m.fitBounds(line.getBounds(), { padding: [20, 20] });
+    }
   } catch {
     document.getElementById("minimap")?.remove();
+    document.querySelectorAll(".trackmap").forEach((el) => el.remove());
   }
 }
 
@@ -287,7 +350,7 @@ async function edit(date) {
     entry: byDate[date],
     onDone: async (savedDate) => {
       await load();
-      if (savedDate && byDate[savedDate]) {
+      if (savedDate && hasDay(savedDate)) {
         const dt = parseYmd(savedDate);
         cur = { y: dt.getFullYear(), m: dt.getMonth() };
         renderCalendar();
@@ -300,6 +363,57 @@ async function edit(date) {
   });
 }
 
+/* ---------- Coros (statut et connexion, admin uniquement) ---------- */
+
+async function corosInit() {
+  const line = $("#corosline");
+  const refresh = async () => {
+    try {
+      const s = await api("/coros/status");
+      $("#corosconnect").hidden = s.connected;
+      $("#corossync").hidden = !s.connected;
+      const when = s.lastSync ? new Date(s.lastSync).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "jamais";
+      line.textContent = s.connected
+        ? `Coros connecté · ${s.activityCount} course(s) · dernière synchro : ${when}${s.lastError ? " · ⚠ " + s.lastError : ""}`
+        : `Coros non connecté.${s.lastError ? " ⚠ " + s.lastError : ""}`;
+      line.classList.toggle("err", !!s.lastError);
+    } catch (e) {
+      line.textContent = "Coros : statut indisponible (" + e.message + ")";
+    }
+  };
+  $("#corosconnect").onclick = async () => {
+    try {
+      const { url } = await api("/coros/connect", { method: "POST" });
+      location.href = url;
+    } catch (e) {
+      line.textContent = "⚠ " + e.message;
+    }
+  };
+  $("#corossync").onclick = async () => {
+    const btn = $("#corossync");
+    btn.disabled = true;
+    line.textContent = "Synchronisation…";
+    try {
+      for (let i = 0; i < 6; i++) {
+        const r = await api("/coros/sync", { method: "POST", body: { days: 45 } });
+        if (!r.added) break;
+      }
+      await load();
+      renderCalendar();
+    } catch (e) {
+      line.textContent = "⚠ " + e.message;
+      btn.disabled = false;
+      return;
+    }
+    btn.disabled = false;
+    await refresh();
+  };
+  const result = new URLSearchParams(location.search).get("coros");
+  if (result) history.replaceState(null, "", location.pathname);
+  await refresh();
+  if (result === "ok") $("#corossync").click();
+}
+
 /* ---------- Démarrage ---------- */
 
 async function boot() {
@@ -307,6 +421,7 @@ async function boot() {
     await ensureLogin();
     $("#today").onclick = () => edit(ymd(new Date()));
     $("#logout").onclick = () => { setToken(null); location.reload(); };
+    corosInit();
   }
   try {
     await load();

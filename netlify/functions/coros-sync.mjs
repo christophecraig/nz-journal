@@ -8,7 +8,7 @@ export const config = { schedule: "*/30 * * * *" };
 export default async () => {
   const store = getStore({ name: "carnet", consistency: "strong" });
   try {
-    const r = await syncCoros(store, { days: 14, maxNew: 5 });
+    const r = await syncCoros(store, { days: 14, maxNew: 3 });
     console.log(`Synchro Coros : ${r.seen} activités vues, ${r.added} ajoutées`);
   } catch (e) {
     if (e.code !== "not_connected") console.error("Synchro Coros :", e.message);

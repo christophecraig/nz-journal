@@ -89,6 +89,18 @@ export const fmtLong = (s) =>
 export const fmtMonth = (y, m) =>
   cap(new Date(y, m, 1).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
 
+/* Course à pied */
+const p2n = (n) => String(n).padStart(2, "0");
+export function fmtDur(sec) {
+  const t = Math.round(sec);
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  return h ? `${h}:${p2n(m)}:${p2n(s)}` : `${m}:${p2n(s)}`;
+}
+export const fmtPace = (sec) => { const t = Math.round(sec); return `${Math.floor(t / 60)}:${p2n(t % 60)}`; };
+export const fmtKm = (km) => km.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+export const actLabel = (a) => (a.indoor ? "Course sur tapis" : a.kind === "trail" ? "Trail" : "Course à pied");
+export const actTitle = (a) => (a.distanceKm ? `${actLabel(a)} · ${fmtKm(a.distanceKm)} km` : actLabel(a));
+
 /* Intégration vidéo */
 export function videoEmbed(url) {
   let m;

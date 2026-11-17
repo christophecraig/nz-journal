@@ -252,7 +252,7 @@ export default async (req) => {
         const body = await req.json().catch(() => ({}));
         const days = Math.min(Math.max(parseInt(body.days, 10) || 14, 1), 90);
         try {
-          return json(await syncCoros(s, { days, maxNew: 5 }));
+          return json(await syncCoros(s, { days, maxNew: 2 }));
         } catch (e) {
           console.error("Synchro Coros :", e.message);
           return json({ error: e.message }, e.code === "not_connected" ? 409 : 502);
