@@ -19,6 +19,7 @@ export const syncFloor = () => process.env.COROS_SYNC_FROM || "2026-11-15"; // a
 const b64url = (buf) => Buffer.from(buf).toString("base64url");
 const sha256 = (s) => createHash("sha256").update(s).digest();
 const timeout = (ms) => AbortSignal.timeout(ms);
+const sample = (t) => String(t).replace(/\s+/g, " ").trim().slice(0, 350);
 
 class CorosError extends Error {
   constructor(message, { code, status } = {}) {
@@ -227,8 +228,8 @@ export function parseRecords(text) {
   const out = [];
   for (const b of blocks) {
     const date = /(\d{4}-\d{2}-\d{2})/.exec(b.split("\n")[0])?.[1];
-    const id = /LabelId:\s*(\d+)/.exec(b)?.[1];
-    const sportType = num(/SportType:\s*(\d+)/, b);
+    const id = /label\s*id\s*[:=]\s*(\d+)/i.exec(b)?.[1];
+    const sportType = num(/sport\s*type\s*[:=]\s*(\d+)/i, b);
     if (!date || !id || !sportType) continue;
     let startTs = num(/startTimestamp=(\d+)/, b);
     if (startTs && startTs > 1e12) startTs = Math.round(startTs / 1000);
@@ -324,10 +325,23 @@ async function runSync(store, token, { days, maxNew, now, fetchImpl }) {
   const floor = syncFloor();
   const since = new Date(now.getTime() - days * 86400000);
   const startDate = ymdCompact(since) > floor.replaceAll("-", "") ? ymdCompact(since) : floor.replaceAll("-", "");
-  const endDate = ymdCompact(new Date(now.getTime() + 86400000));
-  const text = await mcp.tool("querySportRecords", { startDate, endDate, sportTypeCodes: RUN_CODES, limit: 50 });
+  // Tous les paramètres sont obligatoires côté Coros (0 ou "" = filtre désactivé). endDate "" = aujourd'hui (fuseau du compte).
+  const text = await mcp.tool("querySportRecords", {
+    startDate,
+    endDate: "",
+    sportTypeCodes: RUN_CODES,
+    minDistanceKm: 0,
+    maxDistanceKm: 0,
+    minDurationMinutes: 0,
+    maxDurationMinutes: 0,
+    maxAveragePace: "",
+    locationKeyword: "",
+    limit: 50,
+  });
   const records = parseRecords(text);
-  if (!records.length && /LabelId/i.test(text)) throw new CorosError("Format de réponse Coros inattendu");
+  if (!records.length && /label\s*id/i.test(text)) {
+    throw new CorosError(`Format de réponse Coros inattendu. Début de la réponse : ${sample(text)}`);
+  }
   let added = 0;
   const warnings = [];
   for (const rec of records) {
@@ -362,7 +376,7 @@ export async function syncCoros(store, { days = 14, maxNew = 5, now = new Date()
     });
     return result;
   } catch (e) {
-    await store.setJSON("coros/status", { ...prev, lastErrorAt: now.toISOString(), lastError: String(e.message).slice(0, 300) });
+    await store.setJSON("coros/status", { ...prev, lastErrorAt: now.toISOString(), lastError: String(e.message).slice(0, 800) });
     throw e;
   }
 }

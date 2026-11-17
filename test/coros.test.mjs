@@ -47,6 +47,12 @@ test("parseRecords lit les enregistrements", () => {
   assert.equal(r[2].paceSecPerKm, 360); // calculée : 1800 s / 5 km
 });
 
+test("parseRecords tolère la casse et « = » à la place de « : »", () => {
+  const r = parseRecords("Sport Records\n\n1. Trail Run — 2026-11-18\n   Duration: 10:00 | Distance: 2.00 km\n   labelId=5551 | sportType=102\n");
+  assert.equal(r.length, 1);
+  assert.deepEqual([r[0].id, r[0].sportType, r[0].paceSecPerKm], ["5551", 102, 300]);
+});
+
 test("parseRecords : aucun enregistrement", () => {
   assert.deepEqual(parseRecords("No sport records found."), []);
 });
@@ -179,6 +185,11 @@ test("syncCoros : ajoute les courses (récentes, au-dessus du plancher), avec d�
   const q = fake.log.mcpCalls.find((c) => c.name === "querySportRecords");
   assert.deepEqual(q.args.sportTypeCodes, [100, 101, 102, 103]);
   assert.equal(q.args.startDate, "20261115");
+  // tous les paramètres obligatoires de querySportRecords sont fournis (0 / "" = filtre désactivé)
+  assert.deepEqual(
+    { ...q.args, sportTypeCodes: undefined },
+    { startDate: "20261115", endDate: "", sportTypeCodes: undefined, minDistanceKm: 0, maxDistanceKm: 0, minDurationMinutes: 0, maxDurationMinutes: 0, maxAveragePace: "", locationKeyword: "", limit: 50 },
+  );
   assert.equal(q.session, "sess-1");
   assert.ok(fake.log.authHeaders.every((h) => h === "Bearer access-1"));
   const status = await corosStatus(store);
@@ -244,7 +255,8 @@ test("non connecté : erreur not_connected", async () => {
 
 test("format Coros inattendu : erreur explicite plutôt que silence", async () => {
   const { store } = await connected({ records: "1. ???\nLabelId: 12 mais sans le reste" });
-  await assert.rejects(syncCoros(store, { now: NOW }), /Format de réponse Coros inattendu/);
+  await assert.rejects(syncCoros(store, { now: NOW }), /Format de réponse Coros inattendu\. Début de la réponse : 1\. \?\?\? LabelId: 12 mais/);
+  assert.match((await corosStatus(store)).lastError, /Début de la réponse/);
 });
 
 test("aucune course : succès sans ajout", async () => {

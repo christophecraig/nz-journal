@@ -241,7 +241,7 @@ export default async (req) => {
         } catch (e) {
           console.error("Callback Coros :", e.message);
           const prev = (await s.get("coros/status", { type: "json" })) || {};
-          await s.setJSON("coros/status", { ...prev, lastErrorAt: new Date().toISOString(), lastError: String(e.message).slice(0, 300) });
+          await s.setJSON("coros/status", { ...prev, lastErrorAt: new Date().toISOString(), lastError: String(e.message).slice(0, 800) });
           return Response.redirect(`${url.origin}/admin?coros=error`, 302);
         }
       }
