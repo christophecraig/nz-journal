@@ -179,6 +179,7 @@ function showDay(date) {
   const prev = dates[idx - 1] ? { date: dates[idx - 1] } : null;
   const next = dates[idx + 1] ? { date: dates[idx + 1] } : null;
   const sheet = $("#day");
+  clearMaps();
 
   const photos = (e.photos || [])
     .map((p, i) => `<figure data-i="${i}"><img loading="lazy" alt="${esc(p.caption || "Photo du jour")}" src="${mediaUrl(p.thumb || p.key)}">${p.caption ? `<figcaption>${esc(p.caption)}</figcaption>` : ""}</figure>`)
@@ -247,17 +248,21 @@ function showDay(date) {
 }
 
 async function initMaps(places, acts) {
-  const trackEls = [...document.querySelectorAll(".trackmap")];
+  let trackEls = [...document.querySelectorAll(".trackmap")];
+  let mini = document.getElementById("minimap");
   if (!places.length && !trackEls.length) return;
   try {
     const L = await loadLeaflet();
+    // l'utilisateur a pu changer de jour pendant le chargement de Leaflet
+    trackEls = trackEls.filter((el) => el.isConnected);
+    if (mini && !mini.isConnected) mini = null;
+    if (!mini && !trackEls.length) return;
     const mk = (el) => {
       const m = L.map(el, { scrollWheelZoom: false });
       addTiles(L, m);
       maps.push(m);
       return m;
     };
-    const mini = document.getElementById("minimap");
     if (mini && places.length) {
       const m = mk(mini);
       const pts = places.map((p) => [p.lat, p.lng]);
