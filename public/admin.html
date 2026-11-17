@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Admin · Carnet de bord</title>
+  <meta name="theme-color" content="#2f6f55">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-admin="1">
+  <header class="top">
+    <div>
+      <p class="kicker">Administration</p>
+      <h1>Nouvelle-Zélande</h1>
+    </div>
+    <div class="adminbar">
+      <button id="today" class="primary">＋ Aujourd'hui</button>
+      <a class="btn" href="/">Voir le site</a>
+      <button id="logout">Déconnexion</button>
+    </div>
+  </header>
+
+  <main>
+    <nav class="tabs" aria-label="Vue">
+      <button data-tab="cal" class="on">Calendrier</button>
+      <button data-tab="map">Carte</button>
+    </nav>
+    <section id="cal">
+      <div class="monthnav">
+        <button id="prev" aria-label="Mois précédent">‹</button>
+        <h2 id="mtitle"></h2>
+        <button id="next" aria-label="Mois suivant">›</button>
+      </div>
+      <div class="dow"><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span></div>
+      <div id="grid" class="grid"></div>
+      <p class="muted">Touche un jour pour l'écrire ou le modifier.</p>
+    </section>
+    <section id="mapview" hidden>
+      <div id="bigmap"></div>
+      <p id="mapnote" class="muted"></p>
+    </section>
+  </main>
+
+  <div id="day" class="sheet" hidden></div>
+  <div id="lightbox" hidden></div>
+
+  <div id="login" class="login" hidden>
+    <form id="loginform" class="login-box">
+      <h2>Connexion</h2>
+      <label>Mot de passe
+        <input id="pw" type="password" autocomplete="current-password" required autofocus>
+      </label>
+      <p id="loginerr" class="err" role="alert"></p>
+      <button class="primary" type="submit">Entrer</button>
+    </form>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

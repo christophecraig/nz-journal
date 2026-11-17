@@ -1,0 +1,247 @@
+import { getStore } from "@netlify/blobs";
+import { createHmac, createHash, timingSafeEqual, randomUUID } from "node:crypto";
+
+export const config = { path: "/api/*" };
+
+const MAX_MEDIA_BYTES = 5.5 * 1024 * 1024; // limite Netlify Functions : ~6 Mo par requête
+const TOKEN_TTL_MS = 30 * 24 * 3600 * 1000;
+
+const EXT_BY_TYPE = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/aac": "aac",
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+};
+const TYPE_BY_EXT = {
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  webm: "audio/webm",
+  ogg: "audio/ogg",
+  wav: "audio/wav",
+};
+const MEDIA_KEY_RE = /^[a-f0-9-]{36}\.(jpg|png|webp|mp3|m4a|aac|webm|ogg|wav)$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// globalThis.__CARNET_STORE__ n'existe qu'en test local (store en mémoire).
+const storeFactory = () => globalThis.__CARNET_STORE__ ?? getStore({ name: "carnet", consistency: "strong" });
+
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  });
+
+/* ---------- Auth ---------- */
+
+const secret = () => process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || "";
+const sign = (payload) => createHmac("sha256", secret()).update(payload).digest("base64url");
+
+function makeToken() {
+  const exp = String(Date.now() + TOKEN_TTL_MS);
+  return `${exp}.${sign(exp)}`;
+}
+
+function isAuthed(req) {
+  if (!secret()) return false;
+  const h = req.headers.get("authorization") || "";
+  const t = h.startsWith("Bearer ") ? h.slice(7) : "";
+  const [exp, sig] = t.split(".");
+  if (!exp || !sig || !/^\d+$/.test(exp) || Number(exp) < Date.now()) return false;
+  const good = Buffer.from(sign(exp));
+  const got = Buffer.from(sig);
+  return good.length === got.length && timingSafeEqual(good, got);
+}
+
+function passwordMatches(given) {
+  const expected = process.env.ADMIN_PASSWORD || "";
+  if (!expected) return false;
+  const a = createHash("sha256").update(String(given)).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---------- Validation ---------- */
+
+const str = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
+const validKey = (k) => typeof k === "string" && MEDIA_KEY_RE.test(k);
+const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+function cleanEntry(date, b) {
+  const photos = (Array.isArray(b.photos) ? b.photos : [])
+    .slice(0, 60)
+    .filter((p) => p && validKey(p.key))
+    .map((p) => ({
+      key: p.key,
+      thumb: validKey(p.thumb) ? p.thumb : p.key,
+      caption: str(p.caption, 300),
+    }));
+  const audios = (Array.isArray(b.audios) ? b.audios : [])
+    .slice(0, 10)
+    .filter((a) => a && validKey(a.key))
+    .map((a) => ({ key: a.key, label: str(a.label, 120) }));
+  const videos = (Array.isArray(b.videos) ? b.videos : [])
+    .slice(0, 10)
+    .filter((v) => v && typeof v.url === "string" && /^https?:\/\//i.test(v.url))
+    .map((v) => ({ url: v.url.slice(0, 500), title: str(v.title, 120) }));
+  const places = (Array.isArray(b.places) ? b.places : [])
+    .slice(0, 30)
+    .map((p) => ({ name: str(p?.name, 120) || "Lieu", lat: num(p?.lat), lng: num(p?.lng) }))
+    .filter((p) => p.lat !== null && p.lng !== null && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180);
+  return {
+    date,
+    title: str(b.title, 200),
+    text: str(b.text, 30000),
+    photos,
+    audios,
+    videos,
+    places,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+const mediaKeysOf = (e) =>
+  new Set([
+    ...(e?.photos || []).flatMap((p) => [p.key, p.thumb]),
+    ...(e?.audios || []).map((a) => a.key),
+  ].filter(Boolean));
+
+/* ---------- Handlers ---------- */
+
+async function listEntries(s) {
+  const { blobs } = await s.list({ prefix: "entries/" });
+  const all = await Promise.all(blobs.map((b) => s.get(b.key, { type: "json" })));
+  const entries = all.filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+  return json({ entries });
+}
+
+async function putEntry(s, date, req) {
+  if (!DATE_RE.test(date)) return json({ error: "Date invalide" }, 400);
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "JSON invalide" }, 400);
+  }
+  const entry = cleanEntry(date, body || {});
+  const old = await s.get(`entries/${date}`, { type: "json" });
+  await s.setJSON(`entries/${date}`, entry);
+  // Supprime les médias retirés de la fiche
+  const keep = mediaKeysOf(entry);
+  for (const k of mediaKeysOf(old)) if (!keep.has(k)) await s.delete(`media/${k}`);
+  return json({ entry });
+}
+
+async function deleteEntry(s, date) {
+  if (!DATE_RE.test(date)) return json({ error: "Date invalide" }, 400);
+  const old = await s.get(`entries/${date}`, { type: "json" });
+  for (const k of mediaKeysOf(old)) await s.delete(`media/${k}`);
+  await s.delete(`entries/${date}`);
+  return json({ ok: true });
+}
+
+async function uploadMedia(s, req) {
+  const type = (req.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  const ext = EXT_BY_TYPE[type];
+  if (!ext) return json({ error: `Type de fichier non supporté (${type || "inconnu"})` }, 415);
+  const buf = await req.arrayBuffer();
+  if (buf.byteLength === 0) return json({ error: "Fichier vide" }, 400);
+  if (buf.byteLength > MAX_MEDIA_BYTES) return json({ error: "Fichier trop lourd (max ~5 Mo)" }, 413);
+  const key = `${randomUUID()}.${ext}`;
+  await s.set(`media/${key}`, buf, { metadata: { contentType: TYPE_BY_EXT[ext] } });
+  return json({ key });
+}
+
+async function serveMedia(s, key, req) {
+  if (!validKey(key)) return json({ error: "Introuvable" }, 404);
+  const r = await s.getWithMetadata(`media/${key}`, { type: "arrayBuffer" });
+  if (!r) return json({ error: "Introuvable" }, 404);
+  const buf = r.data;
+  const total = buf.byteLength;
+  const base = {
+    "content-type": r.metadata?.contentType || TYPE_BY_EXT[key.split(".").pop()] || "application/octet-stream",
+    "accept-ranges": "bytes",
+    "cache-control": "public, max-age=31536000, immutable",
+  };
+  const range = req.headers.get("range");
+  const m = range && /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  if (!m || (m[1] === "" && m[2] === "")) {
+    return new Response(buf, { status: 200, headers: { ...base, "content-length": String(total) } });
+  }
+  let start = m[1] === "" ? null : Number(m[1]);
+  let end = m[2] === "" ? null : Number(m[2]);
+  if (start === null) {
+    start = Math.max(0, total - end);
+    end = total - 1;
+  } else if (end === null || end >= total) {
+    end = total - 1;
+  }
+  if (start > end || start >= total) {
+    return new Response(null, { status: 416, headers: { ...base, "content-range": `bytes */${total}` } });
+  }
+  return new Response(buf.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      ...base,
+      "content-range": `bytes ${start}-${end}/${total}`,
+      "content-length": String(end - start + 1),
+    },
+  });
+}
+
+/* ---------- Routeur ---------- */
+
+export default async (req) => {
+  const url = new URL(req.url);
+  const [res, id] = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
+  const method = req.method;
+
+  try {
+    if (res === "login" && method === "POST") {
+      if (!process.env.ADMIN_PASSWORD) {
+        return json({ error: "ADMIN_PASSWORD n'est pas défini côté Netlify" }, 503);
+      }
+      const body = await req.json().catch(() => ({}));
+      if (!passwordMatches(body.password ?? "")) {
+        await sleep(800);
+        return json({ error: "Mot de passe incorrect" }, 401);
+      }
+      return json({ token: makeToken() });
+    }
+
+    if (res === "me" && method === "GET") {
+      return isAuthed(req) ? json({ ok: true }) : json({ error: "Non autorisé" }, 401);
+    }
+
+    const s = storeFactory();
+
+    if (res === "entries") {
+      if (method === "GET" && !id) return await listEntries(s);
+      if (!isAuthed(req)) return json({ error: "Non autorisé" }, 401);
+      if (method === "PUT" && id) return await putEntry(s, id, req);
+      if (method === "DELETE" && id) return await deleteEntry(s, id);
+    }
+
+    if (res === "media") {
+      if (method === "GET" && id) return await serveMedia(s, id, req);
+      if (!isAuthed(req)) return json({ error: "Non autorisé" }, 401);
+      if (method === "POST" && !id) return await uploadMedia(s, req);
+    }
+  } catch (e) {
+    console.error(e);
+    return json({ error: "Erreur serveur" }, 500);
+  }
+  return json({ error: "Introuvable" }, 404);
+};

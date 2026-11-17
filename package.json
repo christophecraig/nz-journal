@@ -1,0 +1,10 @@
+{
+  "name": "carnet-nz",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Carnet de bord de voyage : calendrier, photos, notes vocales, lieux",
+  "dependencies": {
+    "@netlify/blobs": ">=8.0.0"
+  }
+}
