@@ -1,5 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import { createHmac, createHash, timingSafeEqual, randomUUID } from "node:crypto";
+import { startAuth, completeAuth, syncCoros, listActivities, corosStatus } from "../lib/coros.mjs";
 
 export const config = { path: "/api/*" };
 
@@ -226,6 +227,38 @@ export default async (req) => {
     }
 
     const s = storeFactory();
+
+    if (res === "activities" && method === "GET" && !id) {
+      return json({ activities: await listActivities(s) });
+    }
+
+    if (res === "coros") {
+      if (id === "callback" && method === "GET") {
+        // Retour de Coros : l'autorisation est protégée par le paramètre `state` à usage unique.
+        try {
+          await completeAuth(s, url.searchParams);
+          return Response.redirect(`${url.origin}/admin?coros=ok`, 302);
+        } catch (e) {
+          console.error("Callback Coros :", e.message);
+          const prev = (await s.get("coros/status", { type: "json" })) || {};
+          await s.setJSON("coros/status", { ...prev, lastErrorAt: new Date().toISOString(), lastError: String(e.message).slice(0, 300) });
+          return Response.redirect(`${url.origin}/admin?coros=error`, 302);
+        }
+      }
+      if (!isAuthed(req)) return json({ error: "Non autorisé" }, 401);
+      if (id === "status" && method === "GET") return json(await corosStatus(s));
+      if (id === "connect" && method === "POST") return json({ url: await startAuth(s, url.origin) });
+      if (id === "sync" && method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const days = Math.min(Math.max(parseInt(body.days, 10) || 14, 1), 90);
+        try {
+          return json(await syncCoros(s, { days, maxNew: 5 }));
+        } catch (e) {
+          console.error("Synchro Coros :", e.message);
+          return json({ error: e.message }, e.code === "not_connected" ? 409 : 502);
+        }
+      }
+    }
 
     if (res === "entries") {
       if (method === "GET" && !id) return await listEntries(s);
