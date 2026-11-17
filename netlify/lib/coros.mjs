@@ -186,10 +186,22 @@ export class McpClient {
 
   async tool(name, args) {
     const res = await this.post({ jsonrpc: "2.0", id: this.nextId++, method: "tools/call", params: { name, arguments: args } });
-    const text = (res.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+    const text = unwrapText((res.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n"));
     if (res.isError) throw new CorosError(`Outil Coros ${name} en erreur : ${text.slice(0, 200)}`);
     return text;
   }
+}
+
+/** Coros renvoie son texte sous forme de chaîne JSON entre guillemets (« "Sport Records…\n… »). On la décode. */
+export function unwrapText(text) {
+  const t = String(text).trim();
+  if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+    try {
+      const v = JSON.parse(t);
+      if (typeof v === "string") return v;
+    } catch { /* texte brut qui commence par un guillemet : on le garde tel quel */ }
+  }
+  return String(text);
 }
 
 export function parseRpcResponse(text, contentType, id) {

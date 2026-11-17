@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
-  parseRecords, parseDetail, extractFitUrl, parseRpcResponse,
+  parseRecords, parseDetail, extractFitUrl, parseRpcResponse, unwrapText,
   startAuth, completeAuth, syncCoros, listActivities, corosStatus, McpClient,
 } from "../netlify/lib/coros.mjs";
 import { memoryStore, buildFit } from "./helpers.mjs";
@@ -74,7 +74,7 @@ test("parseRpcResponse : JSON, SSE, erreur", () => {
 
 /* ---- Faux serveur Coros (OAuth + MCP + stockage FIT) ---- */
 
-function fakeCoros({ sse = false, rejectFirstMcp = false, records = RECORDS(), fitOk = true } = {}) {
+function fakeCoros({ sse = false, quoted = false, rejectFirstMcp = false, records = RECORDS(), fitOk = true } = {}) {
   const log = { tokenBodies: [], mcpCalls: [], authHeaders: [], registrations: [] };
   let mcpRejected = false;
   const fit = buildFit([[-41.1, 175.1], [-41.101, 175.102], [-41.102, 175.104]]);
@@ -115,7 +115,8 @@ function fakeCoros({ sse = false, rejectFirstMcp = false, records = RECORDS(), f
       if (msg.method === "notifications/initialized") return new Response(null, { status: 202 });
       if (msg.method === "tools/call") {
         log.mcpCalls.push({ name: msg.params.name, args: msg.params.arguments, session: init.headers["mcp-session-id"] });
-        const t = (text) => reply({ content: [{ type: "text", text }] });
+        // `quoted` : comme le vrai serveur Coros, le texte est une chaîne JSON entre guillemets
+        const t = (text) => reply({ content: [{ type: "text", text: quoted ? JSON.stringify(text) : text }] });
         if (msg.params.name === "querySportRecords") return t(records);
         if (msg.params.name === "getActivityDetail") return t(DETAIL);
         if (msg.params.name === "queryActivityFitFileDownloadUrls") return t("Activity FIT file download URL(s):\n1. x.fit\n   https://s3eu.coros.com/fit/v2/1/x.fit");
@@ -204,6 +205,24 @@ test("syncCoros est idempotent et respecte maxNew", async () => {
   assert.equal((await syncCoros(store, { now: NOW, maxNew: 5 })).added, 1);
   assert.equal((await syncCoros(store, { now: NOW })).added, 0);
   assert.equal((await listActivities(store)).length, 2);
+});
+
+test("unwrapText décode une chaîne JSON et laisse le texte brut intact", () => {
+  assert.equal(unwrapText(JSON.stringify("a\nb \"c\"")), 'a\nb "c"');
+  assert.equal(unwrapText("texte normal"), "texte normal");
+  assert.equal(unwrapText('"pas du json'), '"pas du json');
+  assert.equal(unwrapText('"un" et "deux"'), '"un" et "deux"');
+});
+
+test("syncCoros fonctionne quand Coros renvoie son texte sous forme de chaîne JSON", async () => {
+  const { store } = await connected({ quoted: true });
+  const r = await syncCoros(store, { now: NOW });
+  assert.equal(r.added, 2);
+  const trail = (await listActivities(store)).find((a) => a.id === "111111111111111111");
+  assert.equal(trail.distanceKm, 6.67);
+  assert.equal(trail.elevGain, 36);
+  assert.equal(trail.track.length, 3);
+  assert.deepEqual(trail.warnings, []);
 });
 
 test("syncCoros fonctionne avec des réponses SSE", async () => {
