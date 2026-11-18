@@ -453,7 +453,6 @@ export function openEditor({ date, entry, onDone }) {
     showNote("");
     setDraft({ lat: x.lat, lng: x.lng, name: x.name });
     status("Lieu choisi : ajoute l'étape (heure facultative).");
-    if (!time.value) time.focus();
   });
 
   /* Position actuelle */
