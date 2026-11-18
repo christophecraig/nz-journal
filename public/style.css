@@ -254,6 +254,8 @@ audio { width: 100%; }
 /* Éditeur */
 .editor label { display: block; margin: 1rem 0; font-weight: 600; }
 .editor label small, .editor fieldset small { display: block; font-weight: 400; color: var(--muted); margin-top: 0.3rem; font-size: 0.8rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: -0.4rem 0 1rem; }
+.chip { padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.85rem; }
 .editor label.btn { display: inline-block; margin: 0.5rem 0 0; font-weight: 400; }
 .editor input:not([type=file]), .editor textarea {
   width: 100%;

@@ -39,6 +39,7 @@ netlify deploy --build --prod
   Les fichiers (photos, audio) restent servis par leur clé aléatoire, qui n'apparaît dans aucune réponse publique tant que le jour est en brouillon.
 - **Brouillon local** : le formulaire est gardé dans le navigateur (`localStorage`) quelques secondes après chaque modification ; « Reprendre le brouillon » à la réouverture du jour.
 - **Aperçu** : rendu visiteur de l'état non enregistré.
+- **Puces de sections** : « ＋ Repas », « ＋ Bar », « ＋ Activité » sous le récit insèrent un titre au curseur (liste dans `public/js/sections.js`).
 - **Envois de médias** : file d'attente avec réessais automatiques, reprise au retour du réseau, boutons Réessayer / Retirer.
 
 ## Utilisation au quotidien

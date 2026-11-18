@@ -2,6 +2,7 @@ import { api, esc, mediaUrl, fmtLong, setToken, loadLeaflet, addTiles } from "./
 import { renderDayArticle, initDayMaps } from "./dayview.js";
 import { createDraftStore, shouldOffer, stable } from "./draft.js";
 import { withRetry } from "./uploader.js";
+import { SECTIONS, insertSection } from "./sections.js";
 
 const MAX_BYTES = 5.5 * 1024 * 1024;
 const $ = (root, s) => root.querySelector(s);
@@ -78,6 +79,9 @@ export function openEditor({ date, entry, acts = [], onDone }) {
         <textarea id="etext" rows="10" placeholder="Ce qu'on a fait, vu, mangé, ressenti…">${esc(e.text)}</textarea>
         <small>Markdown : **gras**, *italique*, - liste, # titre, [texte](https://lien)</small>
       </label>
+      <div class="chips" role="group" aria-label="Ajouter une section au récit">
+        ${SECTIONS.map((s) => `<button type="button" class="chip" data-title="${esc(s.title)}">＋ ${esc(s.title.replace(/^\S+\s/, ""))}</button>`).join("")}
+      </div>
 
       <fieldset>
         <legend>Photos</legend>
@@ -324,6 +328,21 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     $(root, "#drresume").onclick = () => { applyForm(offered.form); banner.hidden = true; status("Brouillon repris. N'oublie pas d'enregistrer."); };
     $(root, "#drignore").onclick = () => { drafts.clear(date); banner.hidden = true; };
   }
+
+  /* ----- Puces de sections : insèrent un titre dans le récit, au curseur (ou à la fin si le champ n'a pas servi) ----- */
+
+  const textEl = $(root, "#etext");
+  let textUsed = false;
+  textEl.addEventListener("focus", () => { textUsed = true; });
+  root.querySelector(".chips").addEventListener("click", (ev) => {
+    const b = ev.target.closest(".chip");
+    if (!b) return;
+    const r = insertSection(textEl.value, textUsed ? textEl.selectionEnd : undefined, b.dataset.title);
+    textEl.value = r.text;
+    textEl.focus();
+    textEl.setSelectionRange(r.cursor, r.cursor);
+    textEl.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
   /* ----- Photos ----- */
 
