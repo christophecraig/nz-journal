@@ -9,6 +9,7 @@ import { CONFIG } from "./config.js";
 import { computeTripStats, statChips } from "./stats.js";
 import { createSeen } from "./seen.js";
 import { buildWall } from "./wall.js";
+import { buildFrames } from "./replay.js";
 
 const ADMIN = document.body.dataset.admin === "1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,6 +22,8 @@ let actsByDate = {};
 const today = new Date();
 let cur = { y: today.getFullYear(), m: today.getMonth() };
 let bigMap = null;
+let bigL = null; // Leaflet, une fois chargé
+let staticLayer = null; // tout ce que la grande carte montre en temps normal (retiré pendant la lecture)
 let dayMaps = null;
 const seen = ADMIN ? null : createSeen(); // pastilles « nouveau » : visiteurs seulement
 
@@ -33,6 +36,7 @@ async function load() {
   activities = a.activities || [];
   actsByDate = {};
   for (const x of activities) (actsByDate[x.date] ||= []).push(x);
+  stopReplay(); // les données ont changé : la séquence en cours n'a plus de sens
   wallDirty = true;
   if (!$("#photosview")?.hidden) renderWall();
   renderTripStats();
@@ -124,6 +128,7 @@ function setTab(name) {
   $("#cal").hidden = name !== "cal";
   $("#mapview").hidden = name !== "map";
   $("#photosview").hidden = name !== "photos";
+  if (name !== "map") stopReplay();
   if (name === "map") showBigMap();
   if (name === "photos") renderWall();
 }
@@ -172,29 +177,33 @@ async function showBigMap() {
   note.textContent = points.length || tracks.length ? "" : "Aucun lieu renseigné pour l'instant.";
   try {
     const L = await loadLeaflet();
+    bigL = L;
+    stopReplay();
     if (!bigMap) {
       bigMap = L.map("bigmap", { scrollWheelZoom: false }).setView([-41.2, 173.3], 5);
       addTiles(L, bigMap);
     }
     bigMap.eachLayer((l) => { if (!(l instanceof L.TileLayer)) bigMap.removeLayer(l); });
+    staticLayer = L.layerGroup().addTo(bigMap);
     setTimeout(() => bigMap.invalidateSize(), 50);
+    initReplayBar();
     if (!points.length && !tracks.length) return;
     const latlngs = points.map((p) => [p.lat, p.lng]);
     for (const e of entries) {
       const line = dayLine(e);
-      if (line) L.polyline(line.pts, { color: "#2f6f55", weight: 3, opacity: 0.7, ...(line.routed ? {} : { dashArray: "6 6" }) }).addTo(bigMap);
+      if (line) L.polyline(line.pts, { color: "#2f6f55", weight: 3, opacity: 0.7, ...(line.routed ? {} : { dashArray: "6 6" }) }).addTo(staticLayer);
       if (line?.routed) latlngs.push(...line.pts);
     }
     for (const a of tracks) {
       L.polyline(a.track, { color: "#c5603a", weight: 4, opacity: 0.9 })
-        .addTo(bigMap)
+        .addTo(staticLayer)
         .bindPopup(`<strong>${esc(actTitle(a))}</strong><br><a href="${dayUrl(a.date)}" data-day="${a.date}">${esc(fmtLong(a.date))}</a>`);
       latlngs.push(...a.track);
     }
     const markers = points.map((p) => ({
       p,
       m: L.marker([p.lat, p.lng])
-        .addTo(bigMap)
+        .addTo(staticLayer)
         .bindPopup(`<strong>${esc(p.name)}</strong><br><a href="${dayUrl(p.date)}" data-day="${p.date}">${esc(fmtLong(p.date))}</a>`),
     }));
     const focus = mapFocus;
@@ -211,6 +220,94 @@ async function showBigMap() {
     note.textContent = e.message;
   }
 }
+
+/* ---------- Rejouer le voyage ---------- */
+
+const REPLAY_STEP_MS = 1600;
+let replay = null; // { frames, i, layer, timer, playing } pendant une lecture (en pause comprise)
+const reducedMotion = () => !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+function replayUi() {
+  const playing = !!replay?.playing;
+  $("#replay").textContent = playing ? "⏸ Pause" : replay ? "▶ Reprendre" : "▶ Rejouer le voyage";
+  $("#replaystop").hidden = !replay;
+}
+
+function initReplayBar() {
+  const n = buildFrames(entries, activities).length;
+  $("#replay").hidden = n === 0;
+  $("#replaylabel").textContent = "";
+  replayUi();
+}
+
+/** Revient à la carte complète (appelé en fin de lecture, au bouton ■, au changement d'onglet ou de données). */
+function stopReplay() {
+  if (!replay) return;
+  clearTimeout(replay.timer);
+  replay.layer.remove(); // retire toutes les couches de la lecture : pas de fuite
+  replay = null;
+  if (bigMap && staticLayer) staticLayer.addTo(bigMap);
+  $("#replaylabel").textContent = "";
+  replayUi();
+}
+
+function drawFrame(f) {
+  const L = bigL;
+  for (const l of f.lines) {
+    L.polyline(l.pts, { color: l.kind === "run" ? "#c5603a" : "#2f6f55", weight: l.kind === "run" ? 4 : 3, opacity: 0.85, ...(l.routed ? {} : { dashArray: "6 6" }) }).addTo(replay.layer);
+  }
+  for (const m of f.markers) {
+    L.circleMarker([m.lat, m.lng], { radius: 6, color: "#fff", weight: 2, fillColor: "#2f6f55", fillOpacity: 1 })
+      .addTo(replay.layer)
+      .bindPopup(`<strong>${esc(m.name)}</strong><br><a href="${dayUrl(f.date)}" data-day="${f.date}">${esc(fmtLong(f.date))}</a>`);
+  }
+  bigMap.fitBounds(f.points, { padding: [40, 40], maxZoom: 11, animate: true, duration: 0.9 });
+  $("#replaylabel").innerHTML = `<a href="${dayUrl(f.date)}" data-day="${f.date}">${esc(fmtLong(f.date))}</a>${f.title ? ` · ${esc(f.title)}` : ""}`;
+}
+
+function replayStep() {
+  if (!replay?.playing) return;
+  const f = replay.frames[replay.i++];
+  if (!f) return stopReplay();
+  drawFrame(f);
+  if (replay.i >= replay.frames.length) {
+    // dernier jour affiché un instant, puis retour à la carte complète
+    replay.timer = setTimeout(stopReplay, REPLAY_STEP_MS * 1.5);
+    replay.playing = false;
+    replayUi();
+    return;
+  }
+  replay.timer = setTimeout(replayStep, REPLAY_STEP_MS);
+}
+
+function toggleReplay() {
+  if (!bigMap || !bigL) return;
+  const frames = buildFrames(entries, activities);
+  if (!frames.length) return;
+  if (reducedMotion()) {
+    // pas d'animation : tout le voyage d'un coup
+    stopReplay();
+    bigMap.fitBounds(frames.flatMap((f) => f.points), { padding: [30, 30], maxZoom: 14, animate: false });
+    $("#replaylabel").textContent = `Voyage complet · ${frames.length} jour${frames.length > 1 ? "s" : ""} sur la carte`;
+    return;
+  }
+  if (replay && replay.i >= replay.frames.length) stopReplay(); // lecture terminée, retour en cours : on repart du début
+  if (replay?.playing) {
+    clearTimeout(replay.timer);
+    replay.playing = false;
+    replayUi();
+    return;
+  }
+  if (!replay) {
+    bigMap.removeLayer(staticLayer);
+    replay = { frames, i: 0, layer: bigL.layerGroup().addTo(bigMap), timer: null, playing: false };
+  }
+  replay.playing = true;
+  replayUi();
+  replayStep();
+}
+$("#replay").onclick = toggleReplay;
+$("#replaystop").onclick = stopReplay;
 
 /* ---------- Fiche d'un jour ---------- */
 
