@@ -34,7 +34,12 @@ netlify deploy --build --prod
 4. Enregistrer. Les visiteurs voient le jour immédiatement.
 
 ## Étapes et itinéraire
-- Un jour peut avoir plusieurs **étapes** (nom, heure, note), dans l'ordre du trajet : « Ma position » ou coordonnées, ↑ ↓ pour réordonner.
+- Un jour peut avoir plusieurs **étapes** (nom, heure, note), dans l'ordre du trajet (↑ ↓ pour réordonner).
+- **Placer une étape** : champ « Chercher un lieu » (suggestions dès 3 lettres, classées par proximité de l'étape précédente),
+  « Ma position » (le nom est deviné), « Choisir sur la carte » (un appui pose le point), ou coordonnées dans « Saisie avancée ».
+  La recherche passe par le serveur (route `/api/geocode`, réservée à l'admin, avec cache) : Photon de Komoot (`photon.komoot.io`,
+  API publique sans garantie), et en secours, sur demande (bouton), Nominatim d'OpenStreetMap (1 requête/s, pas de recherche pendant la frappe,
+  conformément à leurs règles). Les résultats dépendent des données OpenStreetMap. Variables optionnelles : `PHOTON_URL`, `NOMINATIM_URL`.
 - **Itinéraire en voiture** : calculé une seule fois à l'enregistrement par le serveur OSRM public (`router.project-osrm.org`,
   service de démonstration sans garantie, usage léger uniquement), puis stocké dans la fiche du jour : les visiteurs ne déclenchent aucun appel.
   S'il est indisponible, la carte affiche des lignes droites en pointillés ; il suffit de ré-enregistrer le jour plus tard.

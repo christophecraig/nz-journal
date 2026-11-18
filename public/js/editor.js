@@ -1,4 +1,4 @@
-import { api, esc, mediaUrl, fmtLong, setToken } from "./common.js";
+import { api, esc, mediaUrl, fmtLong, setToken, loadLeaflet, addTiles } from "./common.js";
 
 const MAX_BYTES = 5.5 * 1024 * 1024;
 const $ = (root, s) => root.querySelector(s);
@@ -94,19 +94,31 @@ export function openEditor({ date, entry, onDone }) {
       <fieldset>
         <legend>Étapes du jour</legend>
         <div id="eplaces"></div>
+        <div class="searchbox">
+          <input id="epsearch" type="search" placeholder="Chercher un lieu : café, ville, adresse…" autocomplete="off" enterkeyhint="search">
+          <ul id="epres" class="results" hidden></ul>
+          <p id="epnote" class="searchnote" hidden></p>
+        </div>
+        <div class="row">
+          <button type="button" id="eloc">📍 Ma position</button>
+          <button type="button" id="epmap">🗺 Choisir sur la carte</button>
+        </div>
+        <p id="epchosen" class="chosen" hidden></p>
         <div class="row wrap">
           <input id="epname" placeholder="Nom de l'étape (ex. Café à Mount Maunganui)" maxlength="120">
           <input id="eptime" type="time" aria-label="Heure">
-          <input id="eplat" placeholder="Latitude (ou « lat, lng »)" inputmode="text">
-          <input id="eplng" placeholder="Longitude" inputmode="text">
         </div>
         <label class="check"><input id="epapprox" type="checkbox"> Position approximative (arrondie à ~1 km, pour ne pas montrer une adresse précise)</label>
-        <div class="row">
-          <button type="button" id="eloc">📍 Ma position</button>
-          <button type="button" id="epadd">Ajouter l'étape</button>
-        </div>
+        <details class="adv">
+          <summary>Saisie avancée (coordonnées)</summary>
+          <div class="row wrap">
+            <input id="eplat" placeholder="Latitude (ou « lat, lng »)" inputmode="text">
+            <input id="eplng" placeholder="Longitude" inputmode="text">
+          </div>
+        </details>
+        <div class="row"><button type="button" id="epadd" class="primary">Ajouter l'étape</button></div>
         <label class="check"><input id="eroute" type="checkbox" ${e.routeMode === "drive" ? "checked" : ""}> Tracer l'itinéraire en voiture entre les étapes</label>
-        <small>Les étapes sont dans l'ordre du trajet (↑ ↓ pour réordonner). L'itinéraire est calculé à l'enregistrement, c'est une approximation de la route. Astuce : dans Google Maps, un appui long sur la carte donne les coordonnées.</small>
+        <small>Les étapes sont dans l'ordre du trajet (↑ ↓ pour réordonner). L'itinéraire est calculé à l'enregistrement, c'est une approximation de la route. Si un lieu n'est pas trouvé, pose le point sur la carte.</small>
       </fieldset>
 
       ${entry ? `<button type="button" id="edel" class="danger">Supprimer ce jour</button>` : ""}
@@ -350,8 +362,31 @@ export function openEditor({ date, entry, onDone }) {
 
   /* ----- Lieux ----- */
 
+  const lat = $(root, "#eplat"), lng = $(root, "#eplng"), name = $(root, "#epname"), time = $(root, "#eptime"), approx = $(root, "#epapprox");
+  const chosen = $(root, "#epchosen");
+  const showChosen = () => {
+    const c = parseCoords(lat.value, lng.value);
+    chosen.hidden = !c;
+    if (c) chosen.textContent = `📍 Point choisi : ${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`;
+  };
+  lat.addEventListener("input", showChosen);
+  lng.addEventListener("input", showChosen);
+
+  /** Remplit le brouillon d'étape ; si le nom est vide, tente de le deviner depuis les coordonnées. */
+  const setDraft = async ({ lat: la, lng: lo, name: nm }) => {
+    lat.value = la.toFixed(5);
+    lng.value = lo.toFixed(5);
+    if (nm) name.value = nm;
+    showChosen();
+    if (!name.value.trim()) {
+      try {
+        const { place } = await api(`/geocode?reverse=1&lat=${la}&lon=${lo}`);
+        if (place?.name && !name.value.trim()) name.value = place.name;
+      } catch { /* le nom reste à saisir */ }
+    }
+  };
+
   const addPlace = () => {
-    const lat = $(root, "#eplat"), lng = $(root, "#eplng"), name = $(root, "#epname"), time = $(root, "#eptime"), approx = $(root, "#epapprox");
     if (!lat.value.trim() && !lng.value.trim()) return true;
     const c = parseCoords(lat.value, lng.value);
     if (!c) { fail(new Error("Coordonnées invalides (ex. -41.2865, 174.7762)")); return false; }
@@ -360,26 +395,107 @@ export function openEditor({ date, entry, onDone }) {
     if (approx.checked) p.approx = true; // l'arrondi est appliqué côté serveur à l'enregistrement
     e.places.push(p);
     name.value = lat.value = lng.value = time.value = "";
+    approx.checked = false;
+    showChosen();
     renderPlaces();
     renderPhotos();
     return true;
   };
-  $(root, "#epadd").onclick = addPlace;
+  $(root, "#epadd").onclick = () => {
+    if (!lat.value.trim() && !lng.value.trim()) return fail(new Error("Cherche un lieu, choisis-le sur la carte ou utilise ta position."));
+    if (addPlace()) status("Étape ajoutée. N'oublie pas d'enregistrer.");
+  };
   $(root, "#eroute").onchange = (ev) => { e.routeMode = ev.target.checked ? "drive" : "none"; };
+
+  /* Recherche de lieux (le serveur interroge Photon ; secours OpenStreetMap sur demande) */
+  const search = $(root, "#epsearch"), resEl = $(root, "#epres"), noteEl = $(root, "#epnote");
+  let results = [], seq = 0, timer = null;
+  const biasQuery = () => {
+    const last = e.places.at(-1);
+    return last ? `&lat=${last.lat}&lon=${last.lng}` : "";
+  };
+  const showNote = (msg, withAlt) => {
+    noteEl.hidden = !msg;
+    noteEl.innerHTML = msg ? `${esc(msg)}${withAlt ? ` <button type="button" id="epalt">Essayer l'autre source (OpenStreetMap)</button>` : ""}` : "";
+  };
+  const runSearch = async (mode = "photon") => {
+    const q = search.value.trim();
+    const my = ++seq;
+    if (q.length < 3) { results = []; resEl.hidden = true; showNote(""); return; }
+    showNote("Recherche…");
+    try {
+      const r = await api(`/geocode?q=${encodeURIComponent(q)}${biasQuery()}${mode === "nominatim" ? "&mode=nominatim" : ""}`);
+      if (my !== seq) return; // une recherche plus récente a été lancée
+      results = r.results;
+      resEl.innerHTML = results
+        .map((x, i) => `<li><button type="button" data-i="${i}"><strong>${esc(x.name)}</strong><span>${esc(x.detail)}</span></button></li>`)
+        .join("");
+      resEl.hidden = !results.length;
+      showNote(results.length ? "" : "Aucun résultat.", mode === "photon" && !results.length);
+    } catch (err) {
+      if (my !== seq) return;
+      if (err.status === 401) return fail(err);
+      results = [];
+      resEl.hidden = true;
+      showNote(err.message || "Recherche indisponible.", mode === "photon");
+    }
+  };
+  search.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => runSearch(), 400); });
+  search.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); clearTimeout(timer); runSearch(); } });
+  noteEl.addEventListener("click", (ev) => { if (ev.target.id === "epalt") runSearch("nominatim"); });
+  resEl.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-i]");
+    if (!b) return;
+    const x = results[Number(b.dataset.i)];
+    search.value = "";
+    results = [];
+    resEl.hidden = true;
+    showNote("");
+    setDraft({ lat: x.lat, lng: x.lng, name: x.name });
+    status("Lieu choisi : ajoute l'étape (heure facultative).");
+    if (!time.value) time.focus();
+  });
+
+  /* Position actuelle */
   $(root, "#eloc").onclick = () => {
     if (!navigator.geolocation) return fail(new Error("Géolocalisation non supportée"));
     status("Recherche de ta position…");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        $(root, "#eplat").value = pos.coords.latitude.toFixed(5);
-        $(root, "#eplng").value = pos.coords.longitude.toFixed(5);
-        if (!$(root, "#eptime").value) $(root, "#eptime").value = nowHm();
-        status("Position trouvée : donne un nom à l'étape puis « Ajouter l'étape ».");
-        $(root, "#epname").focus();
+      async (pos) => {
+        if (!time.value) time.value = nowHm();
+        await setDraft({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        status("Position trouvée : vérifie le nom puis « Ajouter l'étape ».");
+        name.focus();
       },
       (err) => fail(new Error("Position indisponible : " + err.message)),
       { enableHighAccuracy: true, timeout: 15000 }
     );
+  };
+
+  /* Choix sur la carte : un appui pose le point */
+  $(root, "#epmap").onclick = async () => {
+    let L;
+    try { L = await loadLeaflet(); } catch (err) { return fail(err); }
+    const ov = document.createElement("div");
+    ov.className = "mappick";
+    ov.innerHTML = `<div class="mappick-bar"><button type="button" id="mpcancel">✕ Annuler</button><span>Touche la carte pour poser le point</span><button type="button" id="mpok" class="primary" disabled>Valider</button></div><div id="mpmap"></div>`;
+    document.body.appendChild(ov);
+    const draft = parseCoords(lat.value, lng.value) || e.places.at(-1);
+    const map = L.map(ov.querySelector("#mpmap"));
+    addTiles(L, map);
+    if (draft) map.setView([draft.lat, draft.lng], 11);
+    else map.setView([-41.2, 173.3], 5);
+    let marker = null, pt = null;
+    const ok = ov.querySelector("#mpok");
+    map.on("click", (ev) => {
+      pt = ev.latlng;
+      if (marker) marker.setLatLng(pt);
+      else marker = L.marker(pt).addTo(map);
+      ok.disabled = false;
+    });
+    const closeMap = () => { map.remove(); ov.remove(); };
+    ov.querySelector("#mpcancel").onclick = closeMap;
+    ok.onclick = () => { const p = pt; closeMap(); if (p) setDraft({ lat: p.lat, lng: p.lng }); };
   };
 
   /* ----- Enregistrer / supprimer / annuler ----- */

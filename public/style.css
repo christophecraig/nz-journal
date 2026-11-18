@@ -257,3 +257,20 @@ legend { font-family: var(--serif); font-weight: 700; padding: 0 0.4rem; }
 .stopitem .row { align-items: center; }
 .stopitem .pt { width: auto !important; }
 .stopsel { margin-top: 6px; width: 100%; font-size: 0.8rem; }
+
+.searchbox { position: relative; margin-bottom: 0.4rem; }
+.searchbox input { width: 100%; }
+.results { list-style: none; margin: 0.3rem 0 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.results li + li { border-top: 1px solid var(--line); }
+.results button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0.6rem 0.75rem; font: inherit; color: inherit; cursor: pointer; }
+.results button span { display: block; color: var(--muted); font-size: 0.82rem; overflow-wrap: anywhere; }
+.searchnote { color: var(--muted); font-size: 0.88rem; margin: 0.3rem 0 0; }
+.chosen { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--fern-dark); font-weight: 600; }
+.adv { margin: 0.5rem 0; font-size: 0.9rem; }
+.adv summary { color: var(--muted); cursor: pointer; }
+.mappick { position: fixed; inset: 0; z-index: 3000; background: var(--paper); display: flex; flex-direction: column; }
+.mappick-bar { display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.6rem; font-size: 0.85rem; color: var(--muted); }
+.mappick-bar span { flex: 1; text-align: center; }
+#mpmap { flex: 1; }
+.editor label.check { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.6rem 0; font-weight: 400; font-size: 0.9rem; }
+.editor label.check input { width: auto; margin: 0.2rem 0 0; padding: 0; flex: none; }
