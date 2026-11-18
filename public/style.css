@@ -147,6 +147,7 @@ button.cell { cursor: pointer; }
 .cell.photo::before { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.45), rgba(0,0,0,.05) 45%, rgba(0,0,0,.55)); }
 .cell.photo > * { position: relative; }
 .cell.photo .n, .cell.photo .t { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.cell.new::after { content: ""; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--clay); box-shadow: 0 0 0 2px #fff; }
 button.cell:hover { transform: translateY(-1px); }
 @media (max-width: 520px) {
   .grid, .dow { gap: 3px; }

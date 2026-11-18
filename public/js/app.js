@@ -7,6 +7,7 @@ import { mountComments, commentsEnabled, finishAuthRedirect } from "./comments.j
 import { initAnalytics, track } from "./analytics.js";
 import { CONFIG } from "./config.js";
 import { computeTripStats, statChips } from "./stats.js";
+import { createSeen } from "./seen.js";
 
 const ADMIN = document.body.dataset.admin === "1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -20,6 +21,7 @@ const today = new Date();
 let cur = { y: today.getFullYear(), m: today.getMonth() };
 let bigMap = null;
 let dayMaps = null;
+const seen = ADMIN ? null : createSeen(); // pastilles « nouveau » : visiteurs seulement
 
 /* ---------- Données ---------- */
 
@@ -80,6 +82,8 @@ function renderCalendar() {
     if (ds === todayStr) cls.push("today");
     if (day) cls.push("has");
     if (ADMIN && e?.draft) cls.push("draft");
+    const fresh = !!(seen && e && seen.isNew(e));
+    if (fresh) cls.push("new");
     const thumb = e?.photos?.[0]?.thumb || e?.photos?.[0]?.key;
     if (thumb) cls.push("photo");
     const style = thumb ? ` style="--bg:url('${mediaUrl(thumb)}')"` : "";
@@ -89,7 +93,7 @@ function renderCalendar() {
       : "";
     const inner = `<span class="n">${d}</span>${day ? `<span class="t">${esc(label)}</span>${badges}` : ""}`;
     if (day || ADMIN) {
-      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}${ADMIN && e?.draft ? " (brouillon)" : ""}">${inner}</button>`;
+      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}${ADMIN && e?.draft ? " (brouillon)" : ""}${fresh ? " (nouveau)" : ""}">${inner}</button>`;
     } else {
       html += `<div class="${cls.join(" ")}">${inner}</div>`;
     }
@@ -227,6 +231,7 @@ function showDay(date) {
   const acts = actsByDate[date] || [];
   const dt = parseYmd(date);
   cur = { y: dt.getFullYear(), m: dt.getMonth() };
+  if (seen && !e.synthetic) seen.markSeen(e); // ouvrir un jour efface sa pastille
   renderCalendar();
 
   const dates = allDates();
