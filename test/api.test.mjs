@@ -304,3 +304,36 @@ test("dayFromUrl : /jour/DATE, ancien #DATE, et rien d'autre", async () => {
   assert.equal(dayFromUrl("/admin", ""), "");
   assert.equal(dayPath("2026-11-20"), "/jour/2026-11-20");
 });
+
+test("changer la date d'une fiche : médias conservés, refus si la date est prise", async () => {
+  const up = async (type) => (await json(await call("/api/media", { method: "POST", headers: { ...A, "content-type": type }, body: bytes }))).key;
+  const put = (date, body) => call(`/api/entries/${date}`, { method: "PUT", headers: { ...A, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const k = await up("image/jpeg");
+  const places = [{ id: "a1", name: "Taupō", lat: -38.68, lng: 176.07 }];
+  assert.equal((await put("2027-03-15", { title: "Mal daté", text: "x", photos: [{ key: k, caption: "Lac" }], places })).status, 200);
+
+  // refusé si la date cible existe déjà : rien ne bouge
+  assert.equal((await put("2027-03-30", { title: "Déjà là" })).status, 200);
+  const clash = await put("2027-03-15", { title: "Mal daté", photos: [{ key: k }], moveTo: "2027-03-30" });
+  assert.equal(clash.status, 409);
+  const list0 = (await json(await call("/api/entries"))).entries;
+  assert.equal(list0.find((e) => e.date === "2027-03-30").title, "Déjà là");
+  assert.ok(list0.find((e) => e.date === "2027-03-15"));
+
+  // date invalide
+  assert.equal((await put("2027-03-15", { title: "x", photos: [{ key: k }], moveTo: "demain" })).status, 400);
+
+  // déplacement : la fiche passe au 16, le 15 disparaît, la photo existe toujours
+  const r = await put("2027-03-15", { title: "Bien daté", text: "x", photos: [{ key: k, caption: "Lac" }], places, moveTo: "2027-03-16" });
+  assert.equal(r.status, 200);
+  const moved = (await json(r)).entry;
+  assert.equal(moved.date, "2027-03-16");
+  assert.equal(moved.moveTo, undefined);
+  const list = (await json(await call("/api/entries"))).entries.map((e) => e.date);
+  assert.ok(list.includes("2027-03-16"));
+  assert.ok(!list.includes("2027-03-15"));
+  assert.equal((await call("/api/media/" + k)).status, 200);
+
+  // sans autorisation : refusé
+  assert.equal((await call("/api/entries/2027-03-16", { method: "PUT", body: JSON.stringify({ moveTo: "2027-03-17" }) })).status, 401);
+});

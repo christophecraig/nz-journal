@@ -54,6 +54,10 @@ export function openEditor({ date, entry, onDone }) {
         <button type="button" id="esave" class="primary">Enregistrer</button>
       </div>
       <p class="kicker">${esc(fmtLong(date))}</p>
+      <label>Date du jour
+        <input id="edate" type="date" value="${esc(date)}">
+        <small>Pour déplacer cette fiche (photos, étapes et médias suivent), change la date puis enregistre.</small>
+      </label>
       <p id="estatus" class="status" role="status"></p>
 
       <label>Titre
@@ -503,13 +507,17 @@ export function openEditor({ date, entry, onDone }) {
     if (!addVideo() || !addPlace()) return;
     e.title = $(root, "#etitle").value.trim();
     e.text = $(root, "#etext").value;
+    const newDate = $(root, "#edate").value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return fail(new Error("Date invalide."));
+    if (newDate !== date) e.moveTo = newDate;
+    else delete e.moveTo;
     const btn = $(root, "#esave");
     btn.disabled = true;
     status("Enregistrement…");
     try {
       await api(`/entries/${date}`, { method: "PUT", body: e });
       close();
-      await onDone(date);
+      await onDone(newDate);
     } catch (err) {
       btn.disabled = false;
       fail(err);

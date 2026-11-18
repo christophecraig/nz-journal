@@ -168,7 +168,14 @@ async function putEntry(s, date, req) {
   } catch {
     return json({ error: "JSON invalide" }, 400);
   }
-  const entry = cleanEntry(date, body || {});
+  // Changement de date : la fiche est écrite à la nouvelle date, l'ancienne est retirée (les médias suivent, ils ne dépendent pas de la date)
+  const moveTo = typeof body?.moveTo === "string" && body.moveTo !== date ? body.moveTo : null;
+  if (moveTo) {
+    if (!DATE_RE.test(moveTo)) return json({ error: "Date invalide" }, 400);
+    if (await s.get(`entries/${moveTo}`, { type: "json" })) return json({ error: "Une fiche existe déjà à cette date." }, 409);
+  }
+  const target = moveTo || date;
+  const entry = cleanEntry(target, body || {});
   const old = await s.get(`entries/${date}`, { type: "json" });
   // Itinéraire en voiture : calculé ici, une seule fois (réutilisé tant que les étapes ne bougent pas)
   if (entry.routeMode === "drive" && entry.places.length >= 2) {
@@ -179,7 +186,8 @@ async function putEntry(s, date, req) {
       if (points) entry.route = { sig, points };
     }
   }
-  await s.setJSON(`entries/${date}`, entry);
+  await s.setJSON(`entries/${target}`, entry);
+  if (moveTo) await s.delete(`entries/${date}`);
   // Supprime les médias retirés de la fiche
   const keep = mediaKeysOf(entry);
   for (const k of mediaKeysOf(old)) if (!keep.has(k)) await s.delete(`media/${k}`);
