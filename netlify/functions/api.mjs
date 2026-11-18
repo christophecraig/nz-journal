@@ -2,6 +2,7 @@ import { getStore } from "@netlify/blobs";
 import { createHmac, createHash, timingSafeEqual, randomUUID } from "node:crypto";
 import { startAuth, completeAuth, syncCoros, listActivities, corosStatus } from "../lib/coros.mjs";
 import { fetchDrivingRoute, routeSig } from "../lib/route.mjs";
+import { searchPlaces, reversePlace } from "../lib/geocode.mjs";
 
 export const config = { path: "/api/*" };
 
@@ -296,6 +297,19 @@ export default async (req) => {
           console.error("Synchro Coros :", e.message);
           return json({ error: e.message }, e.code === "not_connected" ? 409 : 502);
         }
+      }
+    }
+
+    if (res === "geocode" && method === "GET" && !id) {
+      if (!isAuthed(req)) return json({ error: "Non autorisé" }, 401);
+      const q = url.searchParams;
+      if (q.get("reverse")) return json({ place: await reversePlace(q.get("lat"), q.get("lon")) });
+      try {
+        const mode = q.get("mode") === "nominatim" ? "nominatim" : "photon";
+        return json({ results: await searchPlaces(q.get("q"), { lat: q.get("lat"), lon: q.get("lon"), mode }), mode });
+      } catch (e) {
+        console.error("Recherche de lieu :", e.message);
+        return json({ error: "Recherche indisponible pour le moment" }, 502);
       }
     }
 

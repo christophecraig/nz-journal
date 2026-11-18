@@ -207,3 +207,63 @@ test("étapes : validations (heure, id dupliqué, coordonnées)", async () => {
   assert.equal(p[1].time, "08:05");
   assert.notEqual(p[0].id, p[1].id);
 });
+
+/* ---------- Recherche de lieux ---------- */
+
+test("géocodage : réservé à l'admin", async () => {
+  assert.equal((await call("/api/geocode?q=Taupo")).status, 401);
+  assert.equal((await call("/api/geocode?reverse=1&lat=1&lon=2")).status, 401);
+});
+
+test("géocodage : Photon (biais de position, normalisation, cache) puis Nominatim sur demande", async () => {
+  const urls = [];
+  globalThis.fetch = async (u, init) => {
+    u = new URL(String(u));
+    urls.push(u.href);
+    assert.match(init.headers["user-agent"], /nz-journal/); // identifiant d'application exigé par les règles d'usage
+    if (u.host === "photon.komoot.io" && u.pathname === "/api/") {
+      return new Response(JSON.stringify({ features: [
+        { geometry: { coordinates: [176.0702, -38.6857] }, properties: { name: "Taupō", city: "Taupō", state: "Waikato", country: "New Zealand" } },
+        { geometry: { coordinates: [176.18, -37.63] }, properties: { name: "Café Mount", street: "Maunganui Road", housenumber: "12", district: "Mount Maunganui", city: "Tauranga", country: "New Zealand" } },
+        { geometry: { coordinates: [999, 0] }, properties: { name: "Cassé" } }, // coordonnées invalides : ignoré
+        { geometry: { coordinates: [1, 2] }, properties: {} }, // sans nom : ignoré
+      ] }));
+    }
+    if (u.host === "photon.komoot.io" && u.pathname === "/reverse") {
+      return new Response(JSON.stringify({ features: [{ geometry: { coordinates: [175.9, -40.1] }, properties: { name: "Pariatua", state: "Wellington" } }] }));
+    }
+    if (u.host === "nominatim.openstreetmap.org" && u.pathname === "/search") {
+      return new Response(JSON.stringify([{ name: "Huka Falls", display_name: "Huka Falls, Taupō, Waikato, New Zealand", lat: "-38.6489", lon: "176.0903" }]));
+    }
+    throw new Error("inattendu " + u);
+  };
+  const get = async (qs) => json(await call("/api/geocode?" + qs, { headers: A }));
+  const r = await get("q=Taupo&lat=-37.7&lon=176.1");
+  assert.equal(r.mode, "photon");
+  assert.equal(r.results.length, 2);
+  assert.deepEqual(r.results[0], { name: "Taupō", detail: "Waikato, New Zealand", lat: -38.6857, lng: 176.0702 });
+  assert.equal(r.results[1].detail, "12 Maunganui Road, Mount Maunganui, Tauranga, New Zealand");
+  const ph = new URL(urls[0]);
+  assert.equal(ph.searchParams.get("lat"), "-37.7");
+  assert.equal(ph.searchParams.get("lon"), "176.1");
+  await get("q=Taupo&lat=-37.7&lon=176.1"); // 2e appel identique : servi par le cache
+  assert.equal(urls.length, 1);
+  assert.deepEqual((await get("q=a")).results, []); // trop court : aucun appel externe
+  assert.equal(urls.length, 1);
+  const n = await get("q=Huka&mode=nominatim");
+  assert.equal(n.mode, "nominatim");
+  assert.deepEqual(n.results[0], { name: "Huka Falls", detail: "Taupō, Waikato, New Zealand", lat: -38.6489, lng: 176.0903 });
+  const rev = await get("reverse=1&lat=-40.1&lon=175.9");
+  assert.equal(rev.place.name, "Pariatua");
+});
+
+test("géocodage : service en panne -> erreur propre ; géocodage inverse -> null", async () => {
+  globalThis.fetch = async () => new Response("boom", { status: 503 });
+  const r = await call("/api/geocode?q=Rotorua", { headers: A });
+  assert.equal(r.status, 502);
+  assert.match((await json(r)).error, /indisponible/);
+  globalThis.fetch = async () => { throw new Error("réseau"); };
+  const rev = await json(await call("/api/geocode?reverse=1&lat=-40&lon=175", { headers: A }));
+  assert.equal(rev.place, null);
+  assert.equal((await json(await call("/api/geocode?reverse=1&lat=abc&lon=175", { headers: A }))).place, null);
+});
