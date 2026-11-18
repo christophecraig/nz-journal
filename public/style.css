@@ -175,7 +175,13 @@ audio { width: 100%; }
 .embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 12px; }
 video { width: 100%; border-radius: 12px; }
 .places { list-style: none; margin: 0; padding: 0; }
-.places li { padding: 0.2rem 0; }
+.stop { display: flex; gap: 0.7rem; padding: 0.45rem 0; }
+.stopbody { flex: 1; min-width: 0; }
+.stophead { font-weight: 600; overflow-wrap: anywhere; }
+.stopnote { color: var(--muted); font-size: 0.92rem; margin-top: 0.1rem; }
+.pin { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--fern, #2f6f55); color: #fff; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
+.gallery.small { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 0.6rem 0 0.2rem; }
+.leaflet-div-icon:has(.pin) { background: none; border: 0; }
 
 /* Visionneuse */
 #lightbox { position: fixed; inset: 0; z-index: 80; background: rgba(10, 10, 10, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; }
@@ -243,3 +249,11 @@ legend { font-family: var(--serif); font-weight: 700; padding: 0 0.4rem; }
 .corosbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0; }
 .corosbar p { flex: 1 1 220px; margin: 0; }
 .corosbar button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+
+.check { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.9rem; margin: 0.5rem 0; }
+.check input { width: auto; margin-top: 0.2rem; }
+.stopitem { align-items: flex-start; }
+.stopitem .grow input { width: 100%; margin: 0.15rem 0; }
+.stopitem .row { align-items: center; }
+.stopitem .pt { width: auto !important; }
+.stopsel { margin-top: 6px; width: 100%; font-size: 0.8rem; }

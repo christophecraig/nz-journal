@@ -1,6 +1,7 @@
 import { getStore } from "@netlify/blobs";
 import { createHmac, createHash, timingSafeEqual, randomUUID } from "node:crypto";
 import { startAuth, completeAuth, syncCoros, listActivities, corosStatus } from "../lib/coros.mjs";
+import { fetchDrivingRoute, routeSig } from "../lib/route.mjs";
 
 export const config = { path: "/api/*" };
 
@@ -80,15 +81,47 @@ const str = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
 const validKey = (k) => typeof k === "string" && MEDIA_KEY_RE.test(k);
 const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
+const PLACE_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const approx2 = (n) => Math.round(n * 100) / 100; // ~1 km : suffisant pour ne pas dévoiler une adresse
+
+/** Les « lieux » d'une fiche sont ses étapes (ordre = ordre du trajet). Les anciennes fiches n'ont ni id, ni heure, ni note : tout reste valide. */
+function cleanPlaces(raw) {
+  const seen = new Set();
+  return (Array.isArray(raw) ? raw : [])
+    .slice(0, 30)
+    .map((p) => {
+      let lat = num(p?.lat);
+      let lng = num(p?.lng);
+      const approx = p?.approx === true;
+      if (approx && lat !== null && lng !== null) {
+        lat = approx2(lat);
+        lng = approx2(lng);
+      }
+      let id = typeof p?.id === "string" && PLACE_ID_RE.test(p.id) ? p.id : "";
+      if (!id || seen.has(id)) id = randomUUID().slice(0, 8);
+      seen.add(id);
+      const place = { id, name: str(p?.name, 120) || "Lieu", lat, lng };
+      if (typeof p?.time === "string" && TIME_RE.test(p.time)) place.time = p.time;
+      const note = str(p?.note, 300);
+      if (note) place.note = note;
+      if (approx) place.approx = true;
+      return place;
+    })
+    .filter((p) => p.lat !== null && p.lng !== null && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180);
+}
+
 function cleanEntry(date, b) {
+  const places = cleanPlaces(b.places);
+  const placeIds = new Set(places.map((p) => p.id));
   const photos = (Array.isArray(b.photos) ? b.photos : [])
     .slice(0, 60)
     .filter((p) => p && validKey(p.key))
-    .map((p) => ({
-      key: p.key,
-      thumb: validKey(p.thumb) ? p.thumb : p.key,
-      caption: str(p.caption, 300),
-    }));
+    .map((p) => {
+      const photo = { key: p.key, thumb: validKey(p.thumb) ? p.thumb : p.key, caption: str(p.caption, 300) };
+      if (typeof p.placeId === "string" && placeIds.has(p.placeId)) photo.placeId = p.placeId;
+      return photo;
+    });
   const audios = (Array.isArray(b.audios) ? b.audios : [])
     .slice(0, 10)
     .filter((a) => a && validKey(a.key))
@@ -97,10 +130,6 @@ function cleanEntry(date, b) {
     .slice(0, 10)
     .filter((v) => v && typeof v.url === "string" && /^https?:\/\//i.test(v.url))
     .map((v) => ({ url: v.url.slice(0, 500), title: str(v.title, 120) }));
-  const places = (Array.isArray(b.places) ? b.places : [])
-    .slice(0, 30)
-    .map((p) => ({ name: str(p?.name, 120) || "Lieu", lat: num(p?.lat), lng: num(p?.lng) }))
-    .filter((p) => p.lat !== null && p.lng !== null && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180);
   return {
     date,
     title: str(b.title, 200),
@@ -109,6 +138,7 @@ function cleanEntry(date, b) {
     audios,
     videos,
     places,
+    routeMode: b.routeMode === "none" ? "none" : "drive",
     updatedAt: new Date().toISOString(),
   };
 }
@@ -138,6 +168,15 @@ async function putEntry(s, date, req) {
   }
   const entry = cleanEntry(date, body || {});
   const old = await s.get(`entries/${date}`, { type: "json" });
+  // Itinéraire en voiture : calculé ici, une seule fois (réutilisé tant que les étapes ne bougent pas)
+  if (entry.routeMode === "drive" && entry.places.length >= 2) {
+    const sig = routeSig(entry.places);
+    if (old?.route?.sig === sig && Array.isArray(old.route.points)) entry.route = old.route;
+    else {
+      const points = await fetchDrivingRoute(entry.places);
+      if (points) entry.route = { sig, points };
+    }
+  }
   await s.setJSON(`entries/${date}`, entry);
   // Supprime les médias retirés de la fiche
   const keep = mediaKeysOf(entry);

@@ -34,11 +34,17 @@ function parseCoords(latStr, lngStr) {
   return { lat, lng };
 }
 
+const newId = () => Math.random().toString(36).slice(2, 10);
+const nowHm = () => new Date().toTimeString().slice(0, 5);
+
 export function openEditor({ date, entry, onDone }) {
   const e = entry
     ? structuredClone(entry)
-    : { date, title: "", text: "", photos: [], audios: [], videos: [], places: [] };
+    : { date, title: "", text: "", photos: [], audios: [], videos: [], places: [], routeMode: "drive" };
 
+  e.places = e.places || [];
+  e.routeMode = e.routeMode === "none" ? "none" : "drive";
+  for (const p of e.places) if (!p.id) p.id = newId();
   const root = document.createElement("div");
   root.className = "editor";
   root.innerHTML = `
@@ -86,18 +92,21 @@ export function openEditor({ date, entry, onDone }) {
       </fieldset>
 
       <fieldset>
-        <legend>Lieux</legend>
+        <legend>Étapes du jour</legend>
         <div id="eplaces"></div>
         <div class="row wrap">
-          <input id="epname" placeholder="Nom du lieu" maxlength="120">
+          <input id="epname" placeholder="Nom de l'étape (ex. Café à Mount Maunganui)" maxlength="120">
+          <input id="eptime" type="time" aria-label="Heure">
           <input id="eplat" placeholder="Latitude (ou « lat, lng »)" inputmode="text">
           <input id="eplng" placeholder="Longitude" inputmode="text">
         </div>
+        <label class="check"><input id="epapprox" type="checkbox"> Position approximative (arrondie à ~1 km, pour ne pas montrer une adresse précise)</label>
         <div class="row">
           <button type="button" id="eloc">📍 Ma position</button>
-          <button type="button" id="epadd">Ajouter le lieu</button>
+          <button type="button" id="epadd">Ajouter l'étape</button>
         </div>
-        <small>Astuce : dans Google Maps, un appui long sur la carte donne les coordonnées à coller ici.</small>
+        <label class="check"><input id="eroute" type="checkbox" ${e.routeMode === "drive" ? "checked" : ""}> Tracer l'itinéraire en voiture entre les étapes</label>
+        <small>Les étapes sont dans l'ordre du trajet (↑ ↓ pour réordonner). L'itinéraire est calculé à l'enregistrement, c'est une approximation de la route. Astuce : dans Google Maps, un appui long sur la carte donne les coordonnées.</small>
       </fieldset>
 
       ${entry ? `<button type="button" id="edel" class="danger">Supprimer ce jour</button>` : ""}
@@ -135,6 +144,7 @@ export function openEditor({ date, entry, onDone }) {
       <div class="th" data-i="${i}">
         <img src="${mediaUrl(p.thumb || p.key)}" alt="">
         <input class="cap" value="${esc(p.caption)}" placeholder="Légende" maxlength="300">
+        ${e.places.length ? `<select class="stopsel" aria-label="Étape de la photo"><option value="">Aucune étape</option>${e.places.map((pl, n) => `<option value="${esc(pl.id)}" ${pl.id === p.placeId ? "selected" : ""}>${n + 1}. ${esc(pl.name)}</option>`).join("")}</select>` : ""}
         <div class="tb">
           <button type="button" data-act="left" ${i === 0 ? "disabled" : ""}>←</button>
           <button type="button" data-act="right" ${i === e.photos.length - 1 ? "disabled" : ""}>→</button>
@@ -147,6 +157,14 @@ export function openEditor({ date, entry, onDone }) {
   photosEl.addEventListener("input", (ev) => {
     const th = ev.target.closest(".th");
     if (th && ev.target.classList.contains("cap")) e.photos[Number(th.dataset.i)].caption = ev.target.value;
+  });
+  photosEl.addEventListener("change", (ev) => {
+    const th = ev.target.closest(".th");
+    if (th && ev.target.classList.contains("stopsel")) {
+      const ph = e.photos[Number(th.dataset.i)];
+      if (ev.target.value) ph.placeId = ev.target.value;
+      else delete ph.placeId;
+    }
   });
   photosEl.addEventListener("click", (ev) => {
     const b = ev.target.closest("button[data-act]");
@@ -194,12 +212,47 @@ export function openEditor({ date, entry, onDone }) {
   const placesEl = $(root, "#eplaces");
   const renderPlaces = () => {
     placesEl.innerHTML = e.places
-      .map((p, i) => `<div class="item" data-i="${i}"><span class="grow">📍 ${esc(p.name)} <span class="muted">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</span></span><button type="button" data-act="del">✕</button></div>`)
+      .map(
+        (p, i) => `
+      <div class="item stopitem" data-i="${i}">
+        <span class="pin">${i + 1}</span>
+        <div class="grow">
+          <input class="pn" value="${esc(p.name)}" maxlength="120" aria-label="Nom">
+          <div class="row">
+            <input class="pt" type="time" value="${esc(p.time || "")}" aria-label="Heure">
+            <span class="muted">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}${p.approx ? " (approx.)" : ""}</span>
+          </div>
+          <input class="pnote" value="${esc(p.note || "")}" maxlength="300" placeholder="Note (facultatif)">
+        </div>
+        <div class="tb">
+          <button type="button" data-act="up" ${i === 0 ? "disabled" : ""}>↑</button>
+          <button type="button" data-act="down" ${i === e.places.length - 1 ? "disabled" : ""}>↓</button>
+          <button type="button" data-act="del">✕</button>
+        </div>
+      </div>`
+      )
       .join("");
   };
+  placesEl.addEventListener("input", (ev) => {
+    const it = ev.target.closest(".item");
+    if (!it) return;
+    const p = e.places[Number(it.dataset.i)];
+    if (ev.target.classList.contains("pn")) p.name = ev.target.value;
+    if (ev.target.classList.contains("pt")) p.time = ev.target.value || undefined;
+    if (ev.target.classList.contains("pnote")) p.note = ev.target.value;
+  });
   placesEl.addEventListener("click", (ev) => {
-    const b = ev.target.closest("button[data-act=del]");
-    if (b) { e.places.splice(Number(b.closest(".item").dataset.i), 1); renderPlaces(); }
+    const b = ev.target.closest("button[data-act]");
+    if (!b) return;
+    const i = Number(b.closest(".item").dataset.i);
+    if (b.dataset.act === "del") {
+      const [gone] = e.places.splice(i, 1);
+      for (const ph of e.photos) if (ph.placeId === gone.id) delete ph.placeId;
+    }
+    if (b.dataset.act === "up") [e.places[i - 1], e.places[i]] = [e.places[i], e.places[i - 1]];
+    if (b.dataset.act === "down") [e.places[i + 1], e.places[i]] = [e.places[i], e.places[i + 1]];
+    renderPlaces();
+    renderPhotos();
   });
 
   renderPhotos(); renderAudios(); renderVideos(); renderPlaces();
@@ -298,16 +351,21 @@ export function openEditor({ date, entry, onDone }) {
   /* ----- Lieux ----- */
 
   const addPlace = () => {
-    const lat = $(root, "#eplat"), lng = $(root, "#eplng"), name = $(root, "#epname");
+    const lat = $(root, "#eplat"), lng = $(root, "#eplng"), name = $(root, "#epname"), time = $(root, "#eptime"), approx = $(root, "#epapprox");
     if (!lat.value.trim() && !lng.value.trim()) return true;
     const c = parseCoords(lat.value, lng.value);
     if (!c) { fail(new Error("Coordonnées invalides (ex. -41.2865, 174.7762)")); return false; }
-    e.places.push({ name: name.value.trim() || "Lieu", ...c });
-    name.value = lat.value = lng.value = "";
+    const p = { id: newId(), name: name.value.trim() || "Étape", ...c };
+    if (time.value) p.time = time.value;
+    if (approx.checked) p.approx = true; // l'arrondi est appliqué côté serveur à l'enregistrement
+    e.places.push(p);
+    name.value = lat.value = lng.value = time.value = "";
     renderPlaces();
+    renderPhotos();
     return true;
   };
   $(root, "#epadd").onclick = addPlace;
+  $(root, "#eroute").onchange = (ev) => { e.routeMode = ev.target.checked ? "drive" : "none"; };
   $(root, "#eloc").onclick = () => {
     if (!navigator.geolocation) return fail(new Error("Géolocalisation non supportée"));
     status("Recherche de ta position…");
@@ -315,7 +373,8 @@ export function openEditor({ date, entry, onDone }) {
       (pos) => {
         $(root, "#eplat").value = pos.coords.latitude.toFixed(5);
         $(root, "#eplng").value = pos.coords.longitude.toFixed(5);
-        status("Position trouvée : donne un nom au lieu puis « Ajouter le lieu ».");
+        if (!$(root, "#eptime").value) $(root, "#eptime").value = nowHm();
+        status("Position trouvée : donne un nom à l'étape puis « Ajouter l'étape ».");
         $(root, "#epname").focus();
       },
       (err) => fail(new Error("Position indisponible : " + err.message)),
