@@ -471,6 +471,7 @@ async function edit(date) {
   openEditor({
     date,
     entry: byDate[date],
+    acts: actsByDate[date] || [],
     onDone: async (savedDate) => {
       await load();
       if (savedDate && hasDay(savedDate)) {

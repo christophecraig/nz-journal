@@ -1,4 +1,5 @@
 import { api, esc, mediaUrl, fmtLong, setToken, loadLeaflet, addTiles } from "./common.js";
+import { renderDayArticle, initDayMaps } from "./dayview.js";
 import { createDraftStore, shouldOffer, stable } from "./draft.js";
 import { withRetry } from "./uploader.js";
 
@@ -39,7 +40,7 @@ function parseCoords(latStr, lngStr) {
 const newId = () => Math.random().toString(36).slice(2, 10);
 const nowHm = () => new Date().toTimeString().slice(0, 5);
 
-export function openEditor({ date, entry, onDone }) {
+export function openEditor({ date, entry, acts = [], onDone }) {
   const e = entry
     ? structuredClone(entry)
     : { date, title: "", text: "", photos: [], audios: [], videos: [], places: [], routeMode: "drive" };
@@ -53,6 +54,7 @@ export function openEditor({ date, entry, onDone }) {
     <div class="sheet-inner">
       <div class="sheet-bar">
         <button type="button" id="ecancel">✕ Annuler</button>
+        <button type="button" id="epreview">👁 Aperçu</button>
         <button type="button" id="esave" class="primary">Enregistrer</button>
       </div>
       <p class="kicker">${esc(fmtLong(date))}</p>
@@ -159,7 +161,7 @@ export function openEditor({ date, entry, onDone }) {
   const cleanups = []; // écouteurs et minuteurs à retirer à la fermeture
   const close = () => {
     closed = true;
-    cleanups.forEach((f) => f());
+    [...cleanups].forEach((f) => f()); // copie : l'aperçu ouvert se retire lui-même de la liste
     root.remove();
     updateLock();
   };
@@ -669,6 +671,45 @@ export function openEditor({ date, entry, onDone }) {
     const closeMap = () => { map.remove(); ov.remove(); };
     ov.querySelector("#mpcancel").onclick = closeMap;
     ok.onclick = () => { const p = pt; closeMap(); if (p) setDraft({ lat: p.lat, lng: p.lng }); };
+  };
+
+  /* ----- Aperçu « comme un visiteur » : rendu public de l'état actuel du formulaire, sans rien enregistrer ----- */
+
+  $(root, "#epreview").onclick = () => {
+    const dateVal = $(root, "#edate").value;
+    const view = {
+      ...JSON.parse(JSON.stringify(e)),
+      title: $(root, "#etitle").value.trim(),
+      text: $(root, "#etext").value,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(dateVal) ? dateVal : date,
+    };
+    // L'itinéraire routier est calculé par le serveur à l'enregistrement : s'il ne correspond plus aux étapes, on ne l'affiche pas.
+    const sig = view.places.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(";");
+    if (view.route?.sig !== sig) delete view.route;
+    const pv = document.createElement("div");
+    pv.className = "sheet preview";
+    pv.innerHTML = `
+      <div class="sheet-inner">
+        <div class="sheet-bar">
+          <button type="button" id="pvclose">← Retour à l'éditeur</button>
+          <span class="muted">Aperçu · rien n'est enregistré</span>
+        </div>
+        ${$(root, "#edraft").checked ? `<p class="draftnote">✎ Brouillon : les visiteurs ne verront pas ce jour tant que la case est cochée.</p>` : ""}
+        <article>${renderDayArticle(view, acts)}</article>
+        ${view.places.length > 1 && view.routeMode === "drive" && !view.route ? `<p class="muted">Le tracé en voiture est calculé à l'enregistrement (lignes droites en attendant).</p>` : ""}
+      </div>`;
+    document.body.appendChild(pv);
+    updateLock();
+    pv.querySelectorAll(".stoplink").forEach((b) => (b.disabled = true));
+    const maps = initDayMaps(pv, view, acts);
+    const closePreview = () => {
+      maps.remove();
+      pv.remove();
+      cleanups.splice(cleanups.indexOf(closePreview), 1);
+      updateLock();
+    };
+    cleanups.push(closePreview);
+    pv.querySelector("#pvclose").onclick = closePreview;
   };
 
   /* ----- Enregistrer / supprimer / annuler ----- */
