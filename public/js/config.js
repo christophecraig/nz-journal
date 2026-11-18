@@ -5,5 +5,5 @@ export const CONFIG = {
   supabaseAnonKey: "sb_publishable_c3Q3590D4DqS6TJcTa9AtA_b7hCUrYn", // clé publique (jamais la clé secrète)
   google: true, // bouton « Continuer avec Google » (à activer aussi dans Supabase)
   emailPassword: true, // inscription par e-mail + mot de passe, SANS e-mail de confirmation
-  goatcounter: "", // ton code GoatCounter, ex. nz-carnet
+  goatcounter: "nz-journal", // code GoatCounter (https://nz-journal.goatcounter.com)
 };
