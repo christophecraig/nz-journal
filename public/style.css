@@ -253,7 +253,7 @@ audio { width: 100%; }
 
 /* Éditeur */
 .editor label { display: block; margin: 1rem 0; font-weight: 600; }
-.editor label small, .editor fieldset small { display: block; font-weight: 400; color: var(--muted); margin-top: 0.3rem; font-size: 0.8rem; }
+.editor label small, .editor fieldset small, .editor .fold small { display: block; font-weight: 400; color: var(--muted); margin-top: 0.3rem; font-size: 0.8rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: -0.4rem 0 1rem; }
 .chip { padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.85rem; }
 .editor label.btn { display: inline-block; margin: 0.5rem 0 0; font-weight: 400; }
@@ -269,6 +269,13 @@ audio { width: 100%; }
 .editor textarea { resize: vertical; line-height: 1.5; }
 fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 0.5rem 0.9rem 0.9rem; margin: 1.25rem 0; }
 legend { font-family: var(--serif); font-weight: 700; padding: 0 0.4rem; }
+.fold { border: 1px solid var(--line); border-radius: 12px; padding: 0 0.9rem; margin: 1.25rem 0; }
+.fold[open] { padding-bottom: 0.9rem; }
+.fold > summary { font-family: var(--serif); font-weight: 700; padding: 0.8rem 0; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.4rem; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "▸"; color: var(--muted); }
+.fold[open] > summary::before { content: "▾"; }
+.fold .count { font-family: inherit; font-weight: 400; color: var(--muted); }
 .row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
 .row.wrap { flex-wrap: wrap; }
 .row.wrap input { flex: 1 1 140px; width: auto !important; }

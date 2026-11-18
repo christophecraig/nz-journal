@@ -83,15 +83,15 @@ export function openEditor({ date, entry, acts = [], onDone }) {
         ${SECTIONS.map((s) => `<button type="button" class="chip" data-title="${esc(s.title)}">＋ ${esc(s.title.replace(/^\S+\s/, ""))}</button>`).join("")}
       </div>
 
-      <fieldset>
-        <legend>Photos</legend>
+      <details class="fold" id="fphotos">
+        <summary>Photos <span class="count" id="cphotos"></span></summary>
         <div id="ephotos" class="thumbs"></div>
         <div id="eqphotos" class="queue" hidden></div>
         <label class="btn">＋ Ajouter des photos<input id="efile" type="file" accept="image/*" multiple hidden></label>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Notes vocales</legend>
+      <details class="fold" id="faudios">
+        <summary>Notes vocales <span class="count" id="caudios"></span></summary>
         <div id="eaudios"></div>
         <div id="eqaudios" class="queue" hidden></div>
         <div class="row">
@@ -99,10 +99,10 @@ export function openEditor({ date, entry, acts = [], onDone }) {
           <label class="btn">Importer un audio<input id="eaudiofile" type="file" accept="audio/*" hidden></label>
         </div>
         <small>5 Mo max par note (environ 10 à 15 min en enregistrement direct).</small>
-      </fieldset>
+      </details>
 
-      <fieldset>
-        <legend>Étapes du jour</legend>
+      <details class="fold" id="fplaces">
+        <summary>Étapes du jour <span class="count" id="cplaces"></span></summary>
         <div id="eplaces"></div>
         <div class="searchbox">
           <input id="epsearch" type="search" placeholder="Chercher un lieu : café, ville, adresse…" autocomplete="off" enterkeyhint="search">
@@ -129,7 +129,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
         <div class="row"><button type="button" id="epadd" class="primary">Ajouter l'étape</button></div>
         <label class="check"><input id="eroute" type="checkbox" ${e.routeMode === "drive" ? "checked" : ""}> Tracer l'itinéraire en voiture entre les étapes</label>
         <small>Les étapes sont dans l'ordre du trajet (↑ ↓ pour réordonner). L'itinéraire est calculé à l'enregistrement, c'est une approximation de la route. Si un lieu n'est pas trouvé, pose le point sur la carte.</small>
-      </fieldset>
+      </details>
 
       ${entry ? `<button type="button" id="edel" class="danger">Supprimer ce jour</button>` : ""}
     </div>`;
@@ -162,8 +162,16 @@ export function openEditor({ date, entry, acts = [], onDone }) {
 
   /* ----- Rendu des listes ----- */
 
+  /** Compteurs affichés sur les sections repliées. */
+  function updateCounts() {
+    for (const [id, n] of [["photos", e.photos.length], ["audios", e.audios.length], ["places", e.places.length]]) {
+      $(root, "#c" + id).textContent = n ? `· ${n}` : "";
+    }
+  }
+
   const photosEl = $(root, "#ephotos");
   const renderPhotos = () => {
+    updateCounts();
     photosEl.innerHTML = e.photos
       .map(
         (p, i) => `
@@ -204,6 +212,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
 
   const audiosEl = $(root, "#eaudios");
   const renderAudios = () => {
+    updateCounts();
     audiosEl.innerHTML = e.audios
       .map(
         (a, i) => `
@@ -226,6 +235,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
 
   const placesEl = $(root, "#eplaces");
   const renderPlaces = () => {
+    updateCounts();
     placesEl.innerHTML = e.places
       .map(
         (p, i) => `
@@ -450,6 +460,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
 
   const enqueue = (item) => {
     queue.push({ id: ++qid, state: "wait", ...item });
+    $(root, item.kind === "photo" ? "#fphotos" : "#faudios").open = true; // l'avancée des envois doit rester visible
     renderQueue();
     status("Envoi des médias en cours…");
     pump();
