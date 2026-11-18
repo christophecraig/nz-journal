@@ -19,7 +19,7 @@ export function memoryStore() {
 }
 
 /** Copie le dossier netlify/ dans un répertoire temporaire avec un faux @netlify/blobs, pour tester sans npm install. */
-export async function loadApi() {
+export async function loadApi(file = "functions/api.mjs") {
   const root = join(fileURLToPath(new URL("..", import.meta.url)));
   const tmp = mkdtempSync(join(tmpdir(), "nzj-"));
   cpSync(join(root, "netlify"), join(tmp, "netlify"), { recursive: true });
@@ -28,7 +28,7 @@ export async function loadApi() {
   mkdirSync(stub, { recursive: true });
   writeFileSync(join(stub, "package.json"), '{"name":"@netlify/blobs","version":"0.0.0","main":"index.js","type":"module"}');
   writeFileSync(join(stub, "index.js"), 'export const getStore = () => { throw new Error("stub: utiliser globalThis.__CARNET_STORE__"); };');
-  return import(pathToFileURL(join(tmp, "netlify", "functions", "api.mjs")).href);
+  return import(pathToFileURL(join(tmp, "netlify", file)).href);
 }
 
 /** Construit un petit fichier FIT valide (messages « record » avec lat/lng en semicercles). */
