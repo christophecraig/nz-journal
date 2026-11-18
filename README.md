@@ -45,7 +45,7 @@ netlify deploy --build --prod
 1. Ouvre `https://ton-site.netlify.app/admin`, connecte-toi (la session dure 30 jours sur l'appareil).
 2. « ＋ Aujourd'hui » ou touche un jour du calendrier.
 3. Titre, récit (Markdown léger), photos (redimensionnées et débarrassées de leurs métadonnées EXIF/GPS dans le navigateur),
-   notes vocales (enregistrement direct ou import), vidéos (lien), étapes du jour (voir ci-dessous).
+   notes vocales (enregistrement direct ou import), étapes du jour (voir ci-dessous).
 4. Enregistrer. Les visiteurs voient le jour immédiatement.
 
 ## Étapes et itinéraire
@@ -102,8 +102,7 @@ npm test      # node --test : décodeur FIT, client OAuth/MCP Coros (faux serveu
 
 ## Limites à connaître
 - Chaque fichier envoyé fait **5 Mo max** (limite de 6 Mo par requête des fonctions Netlify). Les photos sont réduites
-  à 1600 px (~300–600 Ko), donc sans souci. Les vidéos ne sont **pas hébergées** : colle un lien YouTube/Vimeo
-  (non répertorié) ou un .mp4 hébergé ailleurs.
+  à 1600 px (~300–600 Ko), donc sans souci. Les vidéos ne sont pas gérées.
 - La carte utilise Leaflet (unpkg) et les tuiles OpenStreetMap : prévu pour un petit trafic.
 - Les données vivent dans Netlify Blobs, partagées entre tous les déploiements du site : un redéploiement ne les efface pas.
   Une sauvegarde manuelle n'est pas prévue ; pense à garder les photos originales sur ton téléphone.

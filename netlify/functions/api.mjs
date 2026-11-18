@@ -128,17 +128,12 @@ function cleanEntry(date, b) {
     .slice(0, 10)
     .filter((a) => a && validKey(a.key))
     .map((a) => ({ key: a.key, label: str(a.label, 120) }));
-  const videos = (Array.isArray(b.videos) ? b.videos : [])
-    .slice(0, 10)
-    .filter((v) => v && typeof v.url === "string" && /^https?:\/\//i.test(v.url))
-    .map((v) => ({ url: v.url.slice(0, 500), title: str(v.title, 120) }));
   return {
     date,
     title: str(b.title, 200),
     text: str(b.text, 30000),
     photos,
     audios,
-    videos,
     places,
     routeMode: b.routeMode === "none" ? "none" : "drive",
     ...(b.draft === true ? { draft: true } : {}), // absent = publié (les anciennes fiches le restent)

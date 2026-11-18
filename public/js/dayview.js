@@ -1,5 +1,5 @@
 // Rendu d'une fiche de jour, partagé entre la page publique (app.js) et l'aperçu de l'éditeur (editor.js).
-import { esc, md, mediaUrl, videoEmbed, fmtLong, fmtDur, fmtPace, fmtKm, actLabel, actTitle, loadLeaflet, addTiles } from "./common.js";
+import { esc, md, mediaUrl, fmtLong, fmtDur, fmtPace, fmtKm, actLabel, actTitle, loadLeaflet, addTiles } from "./common.js";
 
 /** Ligne à tracer pour un jour : itinéraire routier si calculé, sinon lignes droites entre les étapes (sauf si désactivé). */
 export function dayLine(e) {
@@ -22,9 +22,6 @@ export function renderDayArticle(e, acts = [], { extra = "" } = {}) {
     .join("");
   const audios = (e.audios || [])
     .map((a) => `<div class="audio"><span>🎙 ${esc(a.label || "Note vocale")}</span><audio controls preload="none" src="${mediaUrl(a.key)}"></audio></div>`)
-    .join("");
-  const videos = (e.videos || [])
-    .map((v) => `<div class="video">${v.title ? `<p class="vt">${esc(v.title)}</p>` : ""}${videoEmbed(v.url)}</div>`)
     .join("");
   const runs = acts
     .map((a, i) => {
@@ -64,7 +61,6 @@ export function renderDayArticle(e, acts = [], { extra = "" } = {}) {
         ${runs}
         ${photos ? `<div class="gallery">${photos}</div>` : ""}
         ${audios ? `<div class="block">${audios}</div>` : ""}
-        ${videos ? `<div class="block">${videos}</div>` : ""}
         ${places ? `<div class="block"><div id="minimap"></div><ol class="places">${places}</ol></div>` : ""}
         ${extra}`;
 }

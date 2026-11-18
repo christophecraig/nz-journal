@@ -43,7 +43,7 @@ const nowHm = () => new Date().toTimeString().slice(0, 5);
 export function openEditor({ date, entry, acts = [], onDone }) {
   const e = entry
     ? structuredClone(entry)
-    : { date, title: "", text: "", photos: [], audios: [], videos: [], places: [], routeMode: "drive" };
+    : { date, title: "", text: "", photos: [], audios: [], places: [], routeMode: "drive" };
 
   e.places = e.places || [];
   e.routeMode = e.routeMode === "none" ? "none" : "drive";
@@ -95,16 +95,6 @@ export function openEditor({ date, entry, acts = [], onDone }) {
           <label class="btn">Importer un audio<input id="eaudiofile" type="file" accept="audio/*" hidden></label>
         </div>
         <small>5 Mo max par note (environ 10 à 15 min en enregistrement direct).</small>
-      </fieldset>
-
-      <fieldset>
-        <legend>Vidéos (par lien)</legend>
-        <div id="evideos"></div>
-        <div class="row">
-          <input id="evurl" type="url" placeholder="https://youtu.be/…  (YouTube, Vimeo ou .mp4)">
-          <button type="button" id="evadd">Ajouter</button>
-        </div>
-        <small>Mets ta vidéo en « non répertoriée » sur YouTube, puis colle le lien ici.</small>
       </fieldset>
 
       <fieldset>
@@ -230,17 +220,6 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     if (b) { e.audios.splice(Number(b.closest(".item").dataset.i), 1); renderAudios(); }
   });
 
-  const videosEl = $(root, "#evideos");
-  const renderVideos = () => {
-    videosEl.innerHTML = e.videos
-      .map((v, i) => `<div class="item" data-i="${i}"><span class="grow">${esc(v.url)}</span><button type="button" data-act="del">✕</button></div>`)
-      .join("");
-  };
-  videosEl.addEventListener("click", (ev) => {
-    const b = ev.target.closest("button[data-act=del]");
-    if (b) { e.videos.splice(Number(b.closest(".item").dataset.i), 1); renderVideos(); }
-  });
-
   const placesEl = $(root, "#eplaces");
   const renderPlaces = () => {
     placesEl.innerHTML = e.places
@@ -287,7 +266,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     renderPhotos();
   });
 
-  renderPhotos(); renderAudios(); renderVideos(); renderPlaces();
+  renderPhotos(); renderAudios(); renderPlaces();
 
   /* ----- Brouillon local : survit à un rechargement ou à une coupure réseau ----- */
 
@@ -300,7 +279,6 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     routeMode: e.routeMode,
     photos: e.photos,
     audios: e.audios,
-    videos: e.videos,
     places: e.places,
   });
   const initialForm = JSON.parse(JSON.stringify(snapshot()));
@@ -334,9 +312,9 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     $(root, "#edraft").checked = f.draft;
     e.routeMode = f.routeMode;
     $(root, "#eroute").checked = f.routeMode === "drive";
-    e.photos = f.photos; e.audios = f.audios; e.videos = f.videos; e.places = f.places;
+    e.photos = f.photos; e.audios = f.audios; e.places = f.places;
     for (const p of e.places) if (!p.id) p.id = newId();
-    renderPhotos(); renderAudios(); renderVideos(); renderPlaces();
+    renderPhotos(); renderAudios(); renderPlaces();
   };
   const offered = drafts.load(date);
   if (offered && shouldOffer(offered, entry, initialForm)) {
@@ -522,20 +500,6 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     }
   };
 
-  /* ----- Vidéos ----- */
-
-  const addVideo = () => {
-    const input = $(root, "#evurl");
-    const url = input.value.trim();
-    if (!url) return true;
-    if (!/^https?:\/\//i.test(url)) { fail(new Error("Le lien doit commencer par http(s)://")); return false; }
-    e.videos.push({ url, title: "" });
-    input.value = "";
-    renderVideos();
-    return true;
-  };
-  $(root, "#evadd").onclick = addVideo;
-
   /* ----- Lieux ----- */
 
   const lat = $(root, "#eplat"), lng = $(root, "#eplng"), name = $(root, "#epname"), time = $(root, "#eptime"), approx = $(root, "#epapprox");
@@ -718,7 +682,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     if (queue.some((x) => x.state !== "fail")) return fail(new Error("Des médias sont encore en cours d'envoi : attends la fin ou retire-les."));
     const failed = queue.filter((x) => x.state === "fail");
     if (failed.length && !confirm(`${failed.length} média(s) n'ont pas pu être envoyés. Enregistrer le jour sans eux ?`)) return;
-    if (!addVideo() || !addPlace()) return;
+    if (!addPlace()) return;
     e.title = $(root, "#etitle").value.trim();
     e.text = $(root, "#etext").value;
     e.draft = $(root, "#edraft").checked;

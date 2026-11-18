@@ -102,22 +102,6 @@ export const fmtKm = (km) => km.toLocaleString("fr-FR", { minimumFractionDigits:
 export const actLabel = (a) => (a.indoor ? "Course sur tapis" : a.kind === "trail" ? "Trail" : "Course à pied");
 export const actTitle = (a) => (a.distanceKm ? `${actLabel(a)} · ${fmtKm(a.distanceKm)} km` : actLabel(a));
 
-/* Intégration vidéo */
-export function videoEmbed(url) {
-  let m;
-  if ((m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/.exec(url))) {
-    return `<div class="embed"><iframe src="https://www.youtube-nocookie.com/embed/${m[1]}" loading="lazy" allow="fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
-  }
-  if ((m = /vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-f0-9]+))?/.exec(url))) {
-    const h = m[2] ? `?h=${m[2]}` : "";
-    return `<div class="embed"><iframe src="https://player.vimeo.com/video/${m[1]}${h}" loading="lazy" allow="fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
-  }
-  if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
-    return `<video controls playsinline preload="metadata" src="${esc(url)}"></video>`;
-  }
-  return `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Ouvrir la vidéo ↗</a>`;
-}
-
 export const osmLink = (lat, lng) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=14/${lat}/${lng}`;
 

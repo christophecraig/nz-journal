@@ -43,13 +43,12 @@ test("entrées : validation et nettoyage des médias orphelins", async () => {
   const k2 = await up("audio/webm;codecs=opus");
   const body = {
     title: "Jour 1", text: "Salut", photos: [{ key: k1 }, { key: "evil/../key" }], audios: [{ key: k2, label: "v" }],
-    videos: [{ url: "javascript:alert(1)" }, { url: "https://youtu.be/abcdefghijk" }],
     places: [{ name: "Welly", lat: -41.28, lng: 174.77 }, { name: "bad", lat: 200, lng: 0 }],
   };
   assert.equal((await call("/api/entries/2026-11-20", { method: "PUT", body: "{}" })).status, 401);
   const r = await call("/api/entries/2026-11-20", { method: "PUT", headers: A, body: JSON.stringify(body) });
   const e = (await json(r)).entry;
-  assert.deepEqual([e.photos.length, e.videos.length, e.places.length], [1, 1, 1]);
+  assert.deepEqual([e.photos.length, e.places.length, e.videos], [1, 1, undefined]);
   assert.equal((await call("/api/entries/20-11-2026", { method: "PUT", headers: A, body: "{}" })).status, 400);
   await call("/api/entries/2026-11-20", { method: "PUT", headers: A, body: JSON.stringify({ ...body, audios: [] }) });
   assert.equal((await call("/api/media/" + k2)).status, 404);
@@ -178,7 +177,7 @@ test("photos : rattachées à une étape existante uniquement ; supprimer l'éta
 test("anciennes fiches : lieux sans id/heure toujours valides, rien de perdu", async () => {
   globalThis.fetch = osrmOk([]);
   // fiche telle qu'enregistrée avant cette fonctionnalité
-  await store.setJSON("entries/2026-11-10", { date: "2026-11-10", title: "Ancien", text: "t", photos: [], audios: [], videos: [], places: [{ name: "Welly", lat: -41.28, lng: 174.77 }], updatedAt: "x" });
+  await store.setJSON("entries/2026-11-10", { date: "2026-11-10", title: "Ancien", text: "t", photos: [], audios: [], places: [{ name: "Welly", lat: -41.28, lng: 174.77 }], updatedAt: "x" });
   const old = (await json(await call("/api/entries"))).entries.find((x) => x.date === "2026-11-10");
   assert.equal(old.places[0].name, "Welly"); // lecture inchangée
   // le front renvoie la fiche telle quelle : elle gagne un id, garde ses données

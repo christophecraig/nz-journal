@@ -45,7 +45,7 @@ async function load() {
 const hasDay = (d) => !!(byDate[d] || actsByDate[d]);
 const allDates = () => [...new Set([...entries.map((e) => e.date), ...activities.map((a) => a.date)])].sort();
 /** Une fiche, réelle ou synthétisée à partir des seules courses du jour. */
-const dayOf = (d) => byDate[d] || { date: d, title: "", text: "", photos: [], audios: [], videos: [], places: [], synthetic: true };
+const dayOf = (d) => byDate[d] || { date: d, title: "", text: "", photos: [], audios: [], places: [], synthetic: true };
 
 function pickInitialMonth() {
   const here = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
@@ -96,7 +96,7 @@ function renderCalendar() {
     const style = thumb ? ` style="--bg:url('${mediaUrl(thumb)}')"` : "";
     const label = e?.title || (acts.length ? "🏃 " + acts.map((a) => fmtKm(a.distanceKm || 0) + " km").join(" + ") : "");
     const badges = day
-      ? `<span class="badges">${acts.length ? "🏃" : ""}${e?.audios?.length ? "🎙" : ""}${e?.videos?.length ? "▶" : ""}${e?.places?.length ? "📍" : ""}${ADMIN && e?.draft ? "✎" : ""}</span>`
+      ? `<span class="badges">${acts.length ? "🏃" : ""}${e?.audios?.length ? "🎙" : ""}${e?.places?.length ? "📍" : ""}${ADMIN && e?.draft ? "✎" : ""}</span>`
       : "";
     const inner = `<span class="n">${d}</span>${day ? `<span class="t">${esc(label)}</span>${badges}` : ""}`;
     if (day || ADMIN) {

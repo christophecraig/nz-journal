@@ -35,7 +35,6 @@ export function sanitizeForm(f) {
       .filter((p) => isObj(p) && KEY_RE.test(p.key || ""))
       .map((p) => ({ ...p, caption: typeof p.caption === "string" ? p.caption : "", ...(p.placeId && !ids.has(p.placeId) ? { placeId: undefined } : {}) })),
     audios: arr(f.audios).filter((a) => isObj(a) && KEY_RE.test(a.key || "")).map((a) => ({ ...a, label: typeof a.label === "string" ? a.label : "" })),
-    videos: arr(f.videos).filter((v) => isObj(v) && typeof v.url === "string" && /^https?:\/\//i.test(v.url)),
     places,
   };
 }

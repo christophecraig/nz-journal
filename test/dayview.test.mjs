@@ -11,12 +11,11 @@ const entry = {
   text: "Un **gras** et *italique*\n\n- liste\n\n[lien](https://exemple.org) <script>alert(1)</script>",
   photos: [{ key: K1, thumb: K1, caption: "Libre" }, { key: K2, thumb: K2, caption: "À l'étape", placeId: "p1" }],
   audios: [{ key: K3, label: "Note" }],
-  videos: [{ url: "https://youtu.be/abcdefghijk", title: "Clip" }],
   places: [{ id: "p1", name: "Te Papa", lat: -41.29, lng: 174.78, time: "10:30", note: "Musée" }],
   routeMode: "drive",
 };
 
-test("rendu public : texte, photos libres puis photos d'étape, audio, vidéo, étape, mini-carte", () => {
+test("rendu public : texte, photos libres puis photos d'étape, audio, étape, mini-carte", () => {
   const h = renderDayArticle(entry, []);
   assert.match(h, /<h2>Wellington &lt;b&gt;&quot;vent&quot;&lt;\/b&gt;<\/h2>/);
   assert.match(h, /<strong>gras<\/strong>/);
@@ -25,7 +24,7 @@ test("rendu public : texte, photos libres puis photos d'étape, audio, vidéo, �
   const gallery = h.slice(h.indexOf('<div class="gallery">'), h.indexOf('<div class="block">'));
   assert.ok(gallery.includes(K1) && !gallery.includes(K2)); // la photo rattachée à une étape n'est pas dans la galerie libre
   assert.ok(h.includes('class="gallery small"') && h.includes(K2)); // elle est sous son étape
-  assert.ok(h.includes("🎙 Note") && h.includes("youtube-nocookie.com/embed/abcdefghijk"));
+  assert.ok(h.includes("🎙 Note"));
   assert.ok(h.includes('class="pin">1</span>') && h.includes("Te Papa") && h.includes("10:30") && h.includes("Musée"));
   assert.ok(h.includes('id="minimap"'));
   assert.ok(!/comments|sedit|Modifier/.test(h)); // ni commentaires, ni bouton d'admin

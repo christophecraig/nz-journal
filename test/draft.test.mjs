@@ -4,7 +4,7 @@ import { createDraftStore, shouldOffer, stable, sanitizeForm, draftKey } from ".
 
 const mem = () => { const m = new Map(); return { get: (k) => m.get(k) ?? null, set: (k, v) => (m.set(k, v), true), remove: (k) => m.delete(k), m }; };
 const K = "11111111-2222-3333-4444-555555555555.jpg";
-const form = (o = {}) => ({ title: "T", text: "Bonjour", date: "2026-11-20", draft: false, routeMode: "drive", photos: [{ key: K, thumb: K, caption: "c" }], audios: [], videos: [{ url: "https://youtu.be/abcdefghijk", title: "" }], places: [{ id: "p1", name: "Welly", lat: -41.28, lng: 174.77 }], ...o });
+const form = (o = {}) => ({ title: "T", text: "Bonjour", date: "2026-11-20", draft: false, routeMode: "drive", photos: [{ key: K, thumb: K, caption: "c" }], audios: [], places: [{ id: "p1", name: "Welly", lat: -41.28, lng: 174.77 }], ...o });
 
 test("aller-retour : un brouillon par date, effacé par clear", () => {
   const st = mem();
@@ -34,8 +34,8 @@ test("stockage plein, bloqué ou corrompu : aucune exception", () => {
 test("sanitizeForm : données abîmées neutralisées", () => {
   assert.equal(sanitizeForm(null), null);
   assert.equal(sanitizeForm("x"), null);
-  const f = sanitizeForm({ title: 5, text: null, photos: [{ key: "../evil" }, { key: K }], places: [{ lat: "x", lng: 1 }, { lat: 1, lng: 2 }], videos: [{ url: "javascript:1" }], audios: "non" });
-  assert.deepEqual([f.title, f.text, f.photos.length, f.places.length, f.videos.length, f.audios.length], ["", "", 1, 1, 0, 0]);
+  const f = sanitizeForm({ title: 5, text: null, photos: [{ key: "../evil" }, { key: K }], places: [{ lat: "x", lng: 1 }, { lat: 1, lng: 2 }], audios: "non" });
+  assert.deepEqual([f.title, f.text, f.photos.length, f.places.length, f.audios.length], ["", "", 1, 1, 0]);
 });
 
 test("shouldOffer : plus récent que la fiche ET différent de l'affichage", () => {
