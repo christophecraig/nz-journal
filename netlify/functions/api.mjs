@@ -35,6 +35,7 @@ const TYPE_BY_EXT = {
 };
 const MEDIA_KEY_RE = /^[a-f0-9-]{36}\.(jpg|png|webp|mp3|m4a|aac|webm|ogg|wav)$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // globalThis.__CARNET_STORE__ n'existe qu'en test local (store en mémoire).
 const storeFactory = () => globalThis.__CARNET_STORE__ ?? getStore({ name: "carnet", consistency: "strong" });
@@ -311,6 +312,26 @@ export default async (req) => {
         console.error("Recherche de lieu :", e.message);
         return json({ error: "Recherche indisponible pour le moment" }, 502);
       }
+    }
+
+    if (res === "comments" && method === "DELETE" && id) {
+      // Modération : l'admin supprime n'importe quel commentaire (la clé secrète ne quitte jamais le serveur)
+      if (!isAuthed(req)) return json({ error: "Non autorisé" }, 401);
+      if (!UUID_RE.test(id)) return json({ error: "Identifiant invalide" }, 400);
+      const base = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+      const key = process.env.SUPABASE_SERVICE_KEY || "";
+      if (!base || !key) return json({ error: "SUPABASE_URL / SUPABASE_SERVICE_KEY ne sont pas définis côté Netlify" }, 503);
+      const r = await fetch(`${base}/rest/v1/comments?id=eq.${id}`, {
+        method: "DELETE",
+        headers: { apikey: key, authorization: `Bearer ${key}`, prefer: "return=representation" },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!r.ok) {
+        console.error("Suppression de commentaire :", r.status);
+        return json({ error: "Suppression impossible pour le moment" }, 502);
+      }
+      const rows = await r.json().catch(() => []);
+      return json({ deleted: Array.isArray(rows) ? rows.length : 0 });
     }
 
     if (res === "entries") {

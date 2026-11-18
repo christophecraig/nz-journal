@@ -278,3 +278,19 @@ legend { font-family: var(--serif); font-weight: 700; padding: 0 0.4rem; }
 /* Les panneaux internes de Leaflet (z-index jusqu'à 1000) ne doivent pas passer au-dessus de la fiche du jour (50) */
 .leaflet-container { isolation: isolate; }
 .stoplink { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--fern-dark); text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+
+/* Commentaires */
+.comments { margin-top: 2.2rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+.comments h3 { margin: 0 0 0.8rem; }
+.comment { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; }
+.comment header { display: flex; gap: 0.5rem; align-items: baseline; }
+.comment header .cdel { margin-left: auto; padding: 0.1rem 0.5rem; }
+.comment p { margin: 0.3rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cform { margin-top: 1rem; }
+.cauth { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.8rem; }
+.cauth input, .cauth textarea { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.75rem; font: inherit; }
+.cauth label { display: block; font-weight: 600; }
+.cauth .row { margin-top: 0; }
+.cform .grow { flex: 1; }
+.cmsg { color: var(--clay); font-size: 0.9rem; margin: 0.5rem 0 0; }
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--fern-dark); text-decoration: underline; cursor: pointer; }

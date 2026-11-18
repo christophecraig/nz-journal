@@ -267,3 +267,28 @@ test("géocodage : service en panne -> erreur propre ; géocodage inverse -> nul
   assert.equal(rev.place, null);
   assert.equal((await json(await call("/api/geocode?reverse=1&lat=abc&lon=175", { headers: A }))).place, null);
 });
+
+/* ---------- Modération des commentaires ---------- */
+
+test("commentaires : suppression réservée à l'admin, clé secrète côté serveur", async () => {
+  const id = "3f2b8f0e-1c4d-4e5a-9b6c-7d8e9f0a1b2c";
+  assert.equal((await call(`/api/comments/${id}`, { method: "DELETE" })).status, 401);
+  assert.equal((await call("/api/comments/pas-un-uuid", { method: "DELETE", headers: A })).status, 400);
+  assert.equal((await call(`/api/comments/${id}`, { method: "DELETE", headers: A })).status, 503); // variables absentes
+  process.env.SUPABASE_URL = "https://abc.supabase.co/";
+  process.env.SUPABASE_SERVICE_KEY = "service-secret";
+  let seen;
+  globalThis.fetch = async (u, init) => { seen = { u: String(u), init }; return new Response(JSON.stringify([{ id }]), { status: 200 }); };
+  const r = await call(`/api/comments/${id}`, { method: "DELETE", headers: A });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await json(r), { deleted: 1 });
+  assert.equal(seen.u, `https://abc.supabase.co/rest/v1/comments?id=eq.${id}`);
+  assert.equal(seen.init.method, "DELETE");
+  assert.equal(seen.init.headers.authorization, "Bearer service-secret");
+  globalThis.fetch = async () => new Response("boom", { status: 500 });
+  const bad = await call(`/api/comments/${id}`, { method: "DELETE", headers: A });
+  assert.equal(bad.status, 502);
+  assert.ok(!(await bad.text()).includes("service-secret"));
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_SERVICE_KEY;
+});

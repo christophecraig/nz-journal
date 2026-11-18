@@ -2,6 +2,8 @@ import {
   api, getToken, setToken, mediaUrl, esc, md, ymd, parseYmd, fmtLong, fmtMonth,
   videoEmbed, loadLeaflet, addTiles, fmtDur, fmtPace, fmtKm, actLabel, actTitle,
 } from "./common.js";
+import { mountComments, commentsEnabled, finishAuthRedirect } from "./comments.js";
+import { initAnalytics, track } from "./analytics.js";
 
 const ADMIN = document.body.dataset.admin === "1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -273,6 +275,7 @@ function showDay(date) {
         ${audios ? `<div class="block">${audios}</div>` : ""}
         ${videos ? `<div class="block">${videos}</div>` : ""}
         ${places ? `<div class="block"><div id="minimap"></div><ol class="places">${places}</ol></div>` : ""}
+        ${commentsEnabled() ? `<section id="comments" class="comments"></section>` : ""}
       </article>
     </div>`;
   sheet.hidden = false;
@@ -290,6 +293,8 @@ function showDay(date) {
     if (b && e.places[Number(b.dataset.n)]) focusOnMap(date, e.places[Number(b.dataset.n)]);
   });
   initMaps(e, acts);
+  mountComments($("#comments"), date, { admin: ADMIN });
+  track(`/jour/${date}`, e.title || fmtLong(date));
 }
 
 async function initMaps(e, acts) {
@@ -474,6 +479,7 @@ async function corosInit() {
 /* ---------- Démarrage ---------- */
 
 async function boot() {
+  initAnalytics({ admin: ADMIN });
   if (ADMIN) {
     await ensureLogin();
     $("#today").onclick = () => edit(ymd(new Date()));
@@ -488,6 +494,7 @@ async function boot() {
   }
   pickInitialMonth();
   renderCalendar();
+  await finishAuthRedirect(); // retour de Google : on reprend le jour que le visiteur lisait
   route();
 }
 

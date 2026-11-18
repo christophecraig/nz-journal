@@ -49,6 +49,18 @@ netlify deploy --build --prod
 - **Position approximative** (case à cocher par étape) : coordonnées arrondies à ~1 km **avant** stockage, le point précis n'est jamais enregistré.
 - Les fiches enregistrées avant cette fonctionnalité restent valides : leurs « lieux » deviennent la première étape.
 
+## Commentaires et statistiques
+Inactifs tant que `public/js/config.js` est vide : le site reste identique.
+- **Commentaires (Supabase)** : lecture libre ; pour commenter, connexion Google ou e-mail + mot de passe **sans aucun e-mail envoyé**
+  (pas de « mot de passe oublié » tant qu'aucun envoi d'e-mail n'est configuré). Les commentaires vivent dans Supabase, pas dans Netlify.
+  1. Créer le projet Supabase, coller `supabase/schema.sql` dans *SQL Editor*, puis dans *Authentication* : activer Google, désactiver *Confirm email*,
+     ajouter l'adresse du site dans *URL Configuration* (Site URL + Redirect URLs `https://ton-site/**`).
+  2. Renseigner `supabaseUrl` et `supabaseAnonKey` dans `public/js/config.js` (valeurs publiques).
+  3. Pour que l'admin puisse supprimer n'importe quel commentaire : variables Netlify `SUPABASE_URL` et `SUPABASE_SERVICE_KEY` (clé secrète, jamais dans le dépôt).
+  Garde-fous en base : 1 commentaire / 10 s et 30 / jour par personne, 1000 caractères max, chacun ne supprime que les siens.
+- **Statistiques (GoatCounter, sans cookie)** : renseigner `goatcounter` (le code du compte) dans `public/js/config.js`. Chaque jour consulté est compté
+  (`/jour/AAAA-MM-JJ`) ; ni `/admin` ni toi une fois connecté en admin ne sont comptés.
+
 ## Courses Coros (automatique)
 
 Les courses à pied et trails (types Coros : course extérieure, tapis, trail, piste) remontent toutes seules :
