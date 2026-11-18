@@ -1,6 +1,6 @@
 import {
   api, getToken, setToken, mediaUrl, esc, md, ymd, parseYmd, fmtLong, fmtMonth,
-  videoEmbed, osmLink, loadLeaflet, addTiles, fmtDur, fmtPace, fmtKm, actLabel, actTitle,
+  videoEmbed, loadLeaflet, addTiles, fmtDur, fmtPace, fmtKm, actLabel, actTitle,
 } from "./common.js";
 
 const ADMIN = document.body.dataset.admin === "1";
@@ -93,15 +93,24 @@ $("#next").onclick = () => { cur = cur.m === 11 ? { y: cur.y + 1, m: 0 } : { y: 
 
 /* ---------- Onglets ---------- */
 
+function setTab(name) {
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x.dataset.tab === name));
+  const map = name === "map";
+  $("#cal").hidden = map;
+  $("#mapview").hidden = !map;
+  if (map) showBigMap();
+}
 document.querySelectorAll(".tabs button").forEach((b) => {
-  b.onclick = () => {
-    document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
-    const map = b.dataset.tab === "map";
-    $("#cal").hidden = map;
-    $("#mapview").hidden = !map;
-    if (map) showBigMap();
-  };
+  b.onclick = () => setTab(b.dataset.tab);
 });
+
+/** Depuis une étape d'un jour : ferme la fiche et affiche la grande carte centrée sur ce point. */
+let mapFocus = null;
+function focusOnMap(date, place) {
+  mapFocus = { date, lat: place.lat, lng: place.lng };
+  if (location.hash) closeDay();
+  setTab("map");
+}
 
 /** Ligne à tracer pour un jour : itinéraire routier si calculé, sinon lignes droites entre les étapes (sauf si désactivé). */
 function dayLine(e) {
@@ -137,12 +146,22 @@ async function showBigMap() {
         .bindPopup(`<strong>${esc(actTitle(a))}</strong><br><a href="#${a.date}">${esc(fmtLong(a.date))}</a>`);
       latlngs.push(...a.track);
     }
-    for (const p of points) {
-      L.marker([p.lat, p.lng])
+    const markers = points.map((p) => ({
+      p,
+      m: L.marker([p.lat, p.lng])
         .addTo(bigMap)
-        .bindPopup(`<strong>${esc(p.name)}</strong><br><a href="#${p.date}">${esc(fmtLong(p.date))}</a>`);
+        .bindPopup(`<strong>${esc(p.name)}</strong><br><a href="#${p.date}">${esc(fmtLong(p.date))}</a>`),
+    }));
+    const focus = mapFocus;
+    mapFocus = null;
+    const target = focus && markers.find(({ p }) => p.date === focus.date && p.lat === focus.lat && p.lng === focus.lng);
+    if (target) {
+      bigMap.invalidateSize();
+      bigMap.setView([focus.lat, focus.lng], 14);
+      target.m.openPopup();
+    } else {
+      bigMap.fitBounds(latlngs, { padding: [30, 30], maxZoom: 14 });
     }
-    bigMap.fitBounds(latlngs, { padding: [30, 30], maxZoom: 14 });
   } catch (e) {
     note.textContent = e.message;
   }
@@ -227,7 +246,7 @@ function showDay(date) {
       return `<li class="stop">
         <span class="pin">${n + 1}</span>
         <div class="stopbody">
-          <div class="stophead"><a href="${osmLink(p.lat, p.lng)}" target="_blank" rel="noopener">${esc(p.name)}</a>${p.time ? ` <span class="muted">· ${esc(p.time)}</span>` : ""}${p.approx ? ` <span class="muted">· position approximative</span>` : ""}</div>
+          <div class="stophead"><button type="button" class="stoplink" data-n="${n}" title="Voir sur la carte">${esc(p.name)}</button>${p.time ? ` <span class="muted">· ${esc(p.time)}</span>` : ""}${p.approx ? ` <span class="muted">· position approximative</span>` : ""}</div>
           ${p.note ? `<div class="stopnote">${esc(p.note)}</div>` : ""}
           ${ph ? `<div class="gallery small">${ph}</div>` : ""}
         </div>
@@ -266,7 +285,9 @@ function showDay(date) {
   if (ADMIN) $("#sedit").onclick = () => edit(date);
   sheet.querySelector("article").addEventListener("click", (ev) => {
     const f = ev.target.closest(".gallery figure");
-    if (f) openLightbox(e.photos, Number(f.dataset.i));
+    if (f) return openLightbox(e.photos, Number(f.dataset.i));
+    const b = ev.target.closest(".stoplink");
+    if (b && e.places[Number(b.dataset.n)]) focusOnMap(date, e.places[Number(b.dataset.n)]);
   });
   initMaps(e, acts);
 }
