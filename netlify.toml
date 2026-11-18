@@ -2,6 +2,16 @@
   publish = "public"
   functions = "netlify/functions"
 
+[[redirects]]
+  from = "/confidentialite"
+  to = "/confidentialite.html"
+  status = 200
+
+[[redirects]]
+  from = "/conditions"
+  to = "/conditions.html"
+  status = 200
+
 [functions]
   node_bundler = "esbuild"
 
