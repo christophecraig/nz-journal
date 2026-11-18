@@ -38,6 +38,7 @@ netlify deploy --build --prod
 - **Brouillon / publié** : la case « Brouillon » rend un jour invisible aux visiteurs (calendrier, carte, lien direct, RSS, aperçus de partage). `GET /api/entries` ne renvoie les brouillons qu'à l'admin connecté.
   Les fichiers (photos, audio) restent servis par leur clé aléatoire, qui n'apparaît dans aucune réponse publique tant que le jour est en brouillon.
 - **Brouillon local** : le formulaire est gardé dans le navigateur (`localStorage`) quelques secondes après chaque modification ; « Reprendre le brouillon » à la réouverture du jour.
+- **Jours à écrire** : le calendrier admin entoure en pointillés les jours du voyage (`tripStart` → aujourd'hui, ou `tripEnd`) qui n'ont aucune fiche ; une ligne au-dessus donne la progression et un bouton ouvre le plus ancien. Un brouillon compte comme écrit.
 - **Aperçu** : rendu visiteur de l'état non enregistré.
 - **Sections repliables** : Photos, Notes vocales et Étapes sont repliées par défaut (compteur affiché) ; elles s'ouvrent seules à l'envoi d'un média.
 - **Puces de sections** : « ＋ Repas », « ＋ Bar », « ＋ Activité » sous le récit insèrent un titre au curseur (liste dans `public/js/sections.js`).

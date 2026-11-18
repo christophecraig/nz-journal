@@ -10,6 +10,7 @@ import { computeTripStats, statChips } from "./stats.js";
 import { createSeen } from "./seen.js";
 import { buildWall } from "./wall.js";
 import { buildFrames } from "./replay.js";
+import { daysToWrite } from "./todo.js";
 
 const ADMIN = document.body.dataset.admin === "1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -19,6 +20,7 @@ let entries = [];
 let byDate = {};
 let activities = [];
 let actsByDate = {};
+let todoDays = new Set(); // admin : jours du voyage déjà passés sans fiche
 const today = new Date();
 let cur = { y: today.getFullYear(), m: today.getMonth() };
 let bigMap = null;
@@ -40,6 +42,27 @@ async function load() {
   wallDirty = true;
   if (!$("#photosview")?.hidden) renderWall();
   renderTripStats();
+  if (ADMIN) renderTodo();
+}
+
+/** Admin : combien de jours restent à écrire, et accès direct au plus ancien. */
+function renderTodo() {
+  const r = daysToWrite({ start: CONFIG.tripStart, end: CONFIG.tripEnd, today: ymd(new Date()), entries });
+  todoDays = new Set(r.todo);
+  const bar = $("#todobar");
+  if (!bar) return;
+  bar.hidden = !r.total;
+  if (!r.total) return;
+  const done = r.total - r.todo.length;
+  $("#todoline").textContent = r.todo.length
+    ? `✍ ${done} jour${done > 1 ? "s" : ""} écrit${done > 1 ? "s" : ""} sur ${r.total} · ${r.todo.length} à écrire`
+    : `✓ Les ${r.total} jours du voyage sont écrits. Bravo !`;
+  const next = $("#todonext");
+  next.hidden = !r.todo.length;
+  if (r.todo.length) {
+    next.textContent = `Écrire le ${fmtLong(r.todo[0]).replace(/ \d{4}$/, "")}`;
+    next.onclick = () => edit(r.todo[0]);
+  }
 }
 
 const hasDay = (d) => !!(byDate[d] || actsByDate[d]);
@@ -89,18 +112,21 @@ function renderCalendar() {
     if (ds === todayStr) cls.push("today");
     if (day) cls.push("has");
     if (ADMIN && e?.draft) cls.push("draft");
+    const todo = ADMIN && !e && todoDays.has(ds);
+    if (todo) cls.push("todo");
     const fresh = !!(seen && e && seen.isNew(e));
     if (fresh) cls.push("new");
     const thumb = e?.photos?.[0]?.thumb || e?.photos?.[0]?.key;
     if (thumb) cls.push("photo");
     const style = thumb ? ` style="--bg:url('${mediaUrl(thumb)}')"` : "";
     const label = e?.title || (acts.length ? "🏃 " + acts.map((a) => fmtKm(a.distanceKm || 0) + " km").join(" + ") : "");
+    const tag = todo && !day ? `<span class="t todotag">à écrire</span>` : "";
     const badges = day
       ? `<span class="badges">${acts.length ? "🏃" : ""}${e?.audios?.length ? "🎙" : ""}${e?.places?.length ? "📍" : ""}${ADMIN && e?.draft ? "✎" : ""}</span>`
       : "";
-    const inner = `<span class="n">${d}</span>${day ? `<span class="t">${esc(label)}</span>${badges}` : ""}`;
+    const inner = `<span class="n">${d}</span>${day ? `<span class="t">${esc(label)}</span>${badges}` : ""}${tag}`;
     if (day || ADMIN) {
-      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}${ADMIN && e?.draft ? " (brouillon)" : ""}${fresh ? " (nouveau)" : ""}">${inner}</button>`;
+      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}${ADMIN && e?.draft ? " (brouillon)" : ""}${todo ? " (à écrire)" : ""}${fresh ? " (nouveau)" : ""}">${inner}</button>`;
     } else {
       html += `<div class="${cls.join(" ")}">${inner}</div>`;
     }
