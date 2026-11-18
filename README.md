@@ -4,6 +4,7 @@ Site statique + une fonction Netlify (`netlify/functions/api.mjs`) qui stocke to
 (textes, photos, notes vocales). Aucune base de données à configurer.
 
 - `/` : calendrier public, carte globale, fiche de chaque jour (`/jour/2026-11-18` = lien direct ; les anciens liens `/#2026-11-18` sont convertis automatiquement)
+- Aperçus de partage : `/` a des balises Open Graph statiques (image `public/og-image.png`) ; `/jour/AAAA-MM-JJ` est servi par `netlify/functions/day-page.mjs`, qui injecte titre, début du récit et première photo dans le `<head>` (le reste du HTML est inchangé)
 - `/admin` : connexion par mot de passe, puis écriture/modification des jours
 
 ## Déploiement (une fois)
