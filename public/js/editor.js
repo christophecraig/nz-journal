@@ -1,5 +1,6 @@
 import { api, esc, mediaUrl, fmtLong, setToken, loadLeaflet, addTiles } from "./common.js";
 import { createDraftStore, shouldOffer, stable } from "./draft.js";
+import { withRetry } from "./uploader.js";
 
 const MAX_BYTES = 5.5 * 1024 * 1024;
 const $ = (root, s) => root.querySelector(s);
@@ -79,12 +80,14 @@ export function openEditor({ date, entry, onDone }) {
       <fieldset>
         <legend>Photos</legend>
         <div id="ephotos" class="thumbs"></div>
+        <div id="eqphotos" class="queue" hidden></div>
         <label class="btn">＋ Ajouter des photos<input id="efile" type="file" accept="image/*" multiple hidden></label>
       </fieldset>
 
       <fieldset>
         <legend>Notes vocales</legend>
         <div id="eaudios"></div>
+        <div id="eqaudios" class="queue" hidden></div>
         <div class="row">
           <button type="button" id="erec">● Enregistrer</button>
           <label class="btn">Importer un audio<input id="eaudiofile" type="file" accept="audio/*" hidden></label>
@@ -344,42 +347,138 @@ export function openEditor({ date, entry, onDone }) {
 
   /* ----- Photos ----- */
 
-  $(root, "#efile").onchange = async (ev) => {
+  /* Les envois passent par une file : un à la fois, réessais automatiques, reprise au retour du réseau. */
+  const queue = [];
+  let qid = 0;
+  let pumping = false;
+  const stateText = (it) =>
+    ({
+      wait: "En attente…",
+      send: "Envoi…",
+      retry: `Nouvelle tentative (${it.attempt}/${it.max})…`,
+      offline: "Hors ligne : reprise au retour du réseau…",
+      fail: `Échec : ${it.error || "erreur"}`,
+    })[it.state];
+  const renderQueue = () => {
+    for (const [kind, el] of [["photo", $(root, "#eqphotos")], ["audio", $(root, "#eqaudios")]]) {
+      const items = queue.filter((it) => it.kind === kind);
+      el.hidden = !items.length;
+      el.innerHTML = items
+        .map(
+          (it) => `<div class="qitem ${it.state}" data-id="${it.id}">
+          <span class="qname">${esc(it.label)}</span>
+          <span class="qstate">${esc(stateText(it))}</span>
+          ${it.state === "fail" && !it.fatal ? `<button type="button" data-act="retry">Réessayer</button>` : ""}
+          ${it.state === "wait" || it.state === "fail" ? `<button type="button" data-act="drop">Retirer</button>` : ""}
+        </div>`
+        )
+        .join("");
+    }
+  };
+  root.addEventListener("click", (ev) => {
+    const b = ev.target.closest(".qitem button[data-act]");
+    if (!b) return;
+    const it = queue.find((x) => x.id === Number(b.closest(".qitem").dataset.id));
+    if (!it) return;
+    if (b.dataset.act === "drop") queue.splice(queue.indexOf(it), 1);
+    if (b.dataset.act === "retry") { it.state = "wait"; pump(); }
+    renderQueue();
+  });
+
+  const sendBlob = (it, blob, type) =>
+    withRetry(
+      () => {
+        if (it.state !== "send") { it.state = "send"; renderQueue(); }
+        return upload(blob, type);
+      },
+      {
+        onRetry: ({ attempt, max }) => { it.state = "retry"; it.attempt = attempt; it.max = max; renderQueue(); },
+        onOffline: () => { it.state = "offline"; renderQueue(); },
+      }
+    );
+
+  async function process(it) {
+    it.state = "send";
+    renderQueue();
+    try {
+      if (it.kind === "photo") {
+        if (!it.full) {
+          try {
+            const bmp = await createImageBitmap(it.file, { imageOrientation: "from-image" });
+            it.full = await scaleImage(bmp, 1600, 0.82);
+            it.thumb = await scaleImage(bmp, 420, 0.7);
+            bmp.close?.();
+            it.file = null;
+          } catch (err) {
+            it.fatal = true; // image illisible : réessayer ne servirait à rien
+            throw err;
+          }
+        }
+        // une clé déjà obtenue n'est jamais renvoyée (pas de blob en double si seule la miniature a échoué)
+        it.fullKey ||= (await sendBlob(it, it.full, "image/jpeg")).key;
+        it.thumbKey ||= (await sendBlob(it, it.thumb, "image/jpeg")).key;
+        if (closed) return;
+        e.photos.push({ key: it.fullKey, thumb: it.thumbKey, caption: "" });
+        renderPhotos();
+      } else {
+        const { key } = await sendBlob(it, it.blob, it.type);
+        if (closed) return;
+        e.audios.push({ key, label: it.label });
+        renderAudios();
+      }
+      queue.splice(queue.indexOf(it), 1);
+      touch();
+    } catch (err) {
+      if (err.status === 401) return fail(err);
+      it.state = "fail";
+      it.error = err.message || String(err);
+    }
+    renderQueue();
+  }
+
+  async function pump() {
+    if (pumping) return;
+    pumping = true;
+    try {
+      for (let it; !closed && (it = queue.find((x) => x.state === "wait")); ) await process(it);
+    } finally {
+      pumping = false;
+    }
+    if (closed) return;
+    if (!queue.length) status("Médias ajoutés. N'oublie pas d'enregistrer.");
+    else if (queue.every((x) => x.state === "fail")) status("Certains envois ont échoué : réessaie ou retire-les.", true);
+  }
+
+  const enqueue = (item) => {
+    queue.push({ id: ++qid, state: "wait", ...item });
+    renderQueue();
+    status("Envoi des médias en cours…");
+    pump();
+  };
+
+  // Au retour du réseau, les envois en échec (réseau) repartent d'eux-mêmes.
+  const onOnline = () => {
+    for (const it of queue) if (it.state === "fail" && !it.fatal) it.state = "wait";
+    renderQueue();
+    pump();
+  };
+  window.addEventListener("online", onOnline);
+  cleanups.push(() => {
+    window.removeEventListener("online", onOnline);
+    queue.length = 0;
+  });
+
+  $(root, "#efile").onchange = (ev) => {
     const files = [...ev.target.files];
     ev.target.value = "";
-    for (let i = 0; i < files.length; i++) {
-      status(`Photo ${i + 1}/${files.length} en cours d'envoi…`);
-      try {
-        const bmp = await createImageBitmap(files[i], { imageOrientation: "from-image" });
-        const full = await scaleImage(bmp, 1600, 0.82);
-        const thumb = await scaleImage(bmp, 420, 0.7);
-        bmp.close?.();
-        const a = await upload(full, "image/jpeg");
-        const b = await upload(thumb, "image/jpeg");
-        e.photos.push({ key: a.key, thumb: b.key, caption: "" });
-        renderPhotos();
-        touch();
-      } catch (err) {
-        return fail(new Error(`Photo ${i + 1} : ${err.message}`));
-      }
-    }
-    status("Photos ajoutées. N'oublie pas d'enregistrer.");
+    files.forEach((f, i) => enqueue({ kind: "photo", label: f.name || `Photo ${i + 1}`, file: f }));
   };
 
   /* ----- Audio ----- */
 
-  async function addAudio(blob, type, label) {
+  function addAudio(blob, type, label) {
     if (blob.size > MAX_BYTES) return fail(new Error("Audio trop lourd (max ~5 Mo)"));
-    status("Envoi de la note vocale…");
-    try {
-      const { key } = await upload(blob, type);
-      e.audios.push({ key, label });
-      renderAudios();
-      touch();
-      status("Note vocale ajoutée. N'oublie pas d'enregistrer.");
-    } catch (err) {
-      fail(err);
-    }
+    enqueue({ kind: "audio", label: label || "Note vocale", blob, type });
   }
 
   $(root, "#eaudiofile").onchange = async (ev) => {
@@ -575,6 +674,9 @@ export function openEditor({ date, entry, onDone }) {
   /* ----- Enregistrer / supprimer / annuler ----- */
 
   $(root, "#esave").onclick = async () => {
+    if (queue.some((x) => x.state !== "fail")) return fail(new Error("Des médias sont encore en cours d'envoi : attends la fin ou retire-les."));
+    const failed = queue.filter((x) => x.state === "fail");
+    if (failed.length && !confirm(`${failed.length} média(s) n'ont pas pu être envoyés. Enregistrer le jour sans eux ?`)) return;
     if (!addVideo() || !addPlace()) return;
     e.title = $(root, "#etitle").value.trim();
     e.text = $(root, "#etext").value;
