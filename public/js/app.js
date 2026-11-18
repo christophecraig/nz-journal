@@ -8,6 +8,7 @@ import { initAnalytics, track } from "./analytics.js";
 import { CONFIG } from "./config.js";
 import { computeTripStats, statChips } from "./stats.js";
 import { createSeen } from "./seen.js";
+import { buildWall } from "./wall.js";
 
 const ADMIN = document.body.dataset.admin === "1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,6 +33,8 @@ async function load() {
   activities = a.activities || [];
   actsByDate = {};
   for (const x of activities) (actsByDate[x.date] ||= []).push(x);
+  wallDirty = true;
+  if (!$("#photosview")?.hidden) renderWall();
   renderTripStats();
 }
 
@@ -118,11 +121,38 @@ $("#next").onclick = () => { cur = cur.m === 11 ? { y: cur.y + 1, m: 0 } : { y: 
 
 function setTab(name) {
   document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x.dataset.tab === name));
-  const map = name === "map";
-  $("#cal").hidden = map;
-  $("#mapview").hidden = !map;
-  if (map) showBigMap();
+  $("#cal").hidden = name !== "cal";
+  $("#mapview").hidden = name !== "map";
+  $("#photosview").hidden = name !== "photos";
+  if (name === "map") showBigMap();
+  if (name === "photos") renderWall();
 }
+
+/* ---------- Mur de photos ---------- */
+
+let wallDirty = true; // les données ont changé depuis le dernier rendu
+let wallList = []; // toutes les photos à plat, dans l'ordre affiché : la visionneuse y navigue
+function renderWall() {
+  if (!wallDirty) return;
+  wallDirty = false;
+  const { groups, list } = buildWall(entries);
+  wallList = list;
+  $("#wallnote").textContent = groups.length ? "" : "Aucune photo pour l'instant.";
+  $("#wall").innerHTML = groups
+    .map(
+      (g) => `<section class="wallday">
+        <h3><a href="${dayUrl(g.date)}" data-day="${g.date}">${esc(fmtLong(g.date))}</a>${g.title ? ` <span class="muted">· ${esc(g.title)}</span>` : ""}</h3>
+        <div class="wallgrid">${g.photos
+          .map(({ photo: p, index }) => `<button type="button" class="ph" data-i="${index}"><img loading="lazy" decoding="async" alt="${esc(p.caption || "Photo du " + fmtLong(g.date))}" src="${mediaUrl(p.thumb || p.key)}"></button>`)
+          .join("")}</div>
+      </section>`
+    )
+    .join("");
+}
+$("#wall").addEventListener("click", (ev) => {
+  const b = ev.target.closest(".ph");
+  if (b) openLightbox(wallList, Number(b.dataset.i), { dayLink: true });
+});
 document.querySelectorAll(".tabs button").forEach((b) => {
   b.onclick = () => setTab(b.dataset.tab);
 });
@@ -276,7 +306,7 @@ function showDay(date) {
 
 /* ---------- Visionneuse photo ---------- */
 
-function openLightbox(photos, start) {
+function openLightbox(photos, start, { dayLink = false } = {}) {
   const box = $("#lightbox");
   let i = start;
   const draw = () => {
@@ -285,8 +315,10 @@ function openLightbox(photos, start) {
       <button class="lb-x" aria-label="Fermer">✕</button>
       ${photos.length > 1 ? `<button class="lb-p" aria-label="Précédente">‹</button><button class="lb-n" aria-label="Suivante">›</button>` : ""}
       <img alt="${esc(p.caption || "")}" src="${mediaUrl(p.key)}">
-      ${p.caption ? `<p>${esc(p.caption)}</p>` : ""}`;
+      ${p.caption ? `<p>${esc(p.caption)}</p>` : ""}
+      ${dayLink && p.date ? `<button type="button" class="lb-day">Voir le jour</button>` : ""}`;
     box.querySelector(".lb-x").onclick = close;
+    box.querySelector(".lb-day")?.addEventListener("click", () => { close(); go(p.date); });
     box.querySelector(".lb-p")?.addEventListener("click", () => { i = (i - 1 + photos.length) % photos.length; draw(); });
     box.querySelector(".lb-n")?.addEventListener("click", () => { i = (i + 1) % photos.length; draw(); });
   };

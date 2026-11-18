@@ -36,6 +36,7 @@
     <nav class="tabs" aria-label="Vue">
       <button data-tab="cal" class="on">Calendrier</button>
       <button data-tab="map">Carte</button>
+      <button data-tab="photos">Photos</button>
     </nav>
   </header>
 
@@ -50,6 +51,10 @@
       <div class="dow"><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span></div>
       <div id="grid" class="grid"></div>
       <p id="empty" class="muted" hidden>Rien d'écrit pour l'instant, le voyage commence bientôt.</p>
+    </section>
+    <section id="photosview" hidden>
+      <div id="wall"></div>
+      <p id="wallnote" class="muted"></p>
     </section>
     <section id="mapview" hidden>
       <div id="bigmap"></div>

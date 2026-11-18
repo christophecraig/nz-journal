@@ -35,6 +35,7 @@
     <nav class="tabs" aria-label="Vue">
       <button data-tab="cal" class="on">Calendrier</button>
       <button data-tab="map">Carte</button>
+      <button data-tab="photos">Photos</button>
     </nav>
     <section id="cal">
       <div class="monthnav">
@@ -45,6 +46,10 @@
       <div class="dow"><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span></div>
       <div id="grid" class="grid"></div>
       <p class="muted">Touche un jour pour l'écrire ou le modifier.</p>
+    </section>
+    <section id="photosview" hidden>
+      <div id="wall"></div>
+      <p id="wallnote" class="muted"></p>
     </section>
     <section id="mapview" hidden>
       <div id="bigmap"></div>
