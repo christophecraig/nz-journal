@@ -30,8 +30,19 @@ netlify deploy --build --prod
 1. Ouvre `https://ton-site.netlify.app/admin`, connecte-toi (la session dure 30 jours sur l'appareil).
 2. « ＋ Aujourd'hui » ou touche un jour du calendrier.
 3. Titre, récit (Markdown léger), photos (redimensionnées et débarrassées de leurs métadonnées EXIF/GPS dans le navigateur),
-   notes vocales (enregistrement direct ou import), vidéos (lien), lieux (bouton « Ma position » ou coordonnées).
+   notes vocales (enregistrement direct ou import), vidéos (lien), étapes du jour (voir ci-dessous).
 4. Enregistrer. Les visiteurs voient le jour immédiatement.
+
+## Étapes et itinéraire
+- Un jour peut avoir plusieurs **étapes** (nom, heure, note), dans l'ordre du trajet : « Ma position » ou coordonnées, ↑ ↓ pour réordonner.
+- **Itinéraire en voiture** : calculé une seule fois à l'enregistrement par le serveur OSRM public (`router.project-osrm.org`,
+  service de démonstration sans garantie, usage léger uniquement), puis stocké dans la fiche du jour : les visiteurs ne déclenchent aucun appel.
+  S'il est indisponible, la carte affiche des lignes droites en pointillés ; il suffit de ré-enregistrer le jour plus tard.
+  Variable optionnelle `OSRM_URL` pour pointer vers un autre serveur compatible OSRM (ex. un OpenRouteService/OSRM auto-hébergé).
+  La case « Tracer l'itinéraire en voiture » se décoche pour les jours sans trajet.
+- Chaque photo peut être rattachée à une étape (menu sous la photo) ; elle s'affiche alors sous cette étape. Aucun blob supplémentaire.
+- **Position approximative** (case à cocher par étape) : coordonnées arrondies à ~1 km **avant** stockage, le point précis n'est jamais enregistré.
+- Les fiches enregistrées avant cette fonctionnalité restent valides : leurs « lieux » deviennent la première étape.
 
 ## Courses Coros (automatique)
 
