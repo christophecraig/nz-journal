@@ -72,6 +72,9 @@ button.danger { color: var(--clay); border-color: var(--clay); width: 100%; marg
   align-items: flex-end;
   justify-content: space-between;
 }
+.ident { display: flex; align-items: center; gap: 0.75rem; }
+.ident .logo { display: block; line-height: 0; flex: none; }
+.ident .logo img { width: 48px; height: 48px; border-radius: 12px; }
 .top h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); }
 .adminbar { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .tabs { display: flex; gap: 0.25rem; background: #ebe4d3; padding: 0.25rem; border-radius: 12px; }
