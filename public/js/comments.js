@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { api, esc } from "./common.js";
+import { api, esc, dayFromUrl, dayPath } from "./common.js";
 
 export const commentsEnabled = () => !!(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
 
@@ -39,7 +39,16 @@ export async function finishAuthRedirect() {
     back = sessionStorage.getItem(RETURN_KEY) || "";
     sessionStorage.removeItem(RETURN_KEY);
   } catch {}
-  history.replaceState(null, "", location.pathname + (/^#\d{4}-\d{2}-\d{2}$/.test(back) ? back : ""));
+  // On reprend le jour que le visiteur lisait. Public : /jour/DATE (ou ancien #DATE) ; admin : on reste sur /admin#DATE.
+  const i = back.indexOf("#");
+  const hash = i >= 0 ? back.slice(i) : "";
+  const path = i >= 0 ? back.slice(0, i) : back;
+  if (location.pathname.startsWith("/admin")) {
+    history.replaceState(null, "", location.pathname + (/^#\d{4}-\d{2}-\d{2}$/.test(hash) ? hash : ""));
+  } else {
+    const day = dayFromUrl(location.pathname, "") || dayFromUrl(path, hash);
+    history.replaceState(null, "", day ? dayPath(day) : location.pathname);
+  }
 }
 
 const fmtWhen = (iso) =>
@@ -165,7 +174,7 @@ export async function mountComments(el, date, { admin = false } = {}) {
   form.addEventListener("click", async (ev) => {
     const act = ev.target.closest("[data-act]")?.dataset.act;
     if (act === "google") {
-      try { sessionStorage.setItem(RETURN_KEY, location.hash); } catch {}
+      try { sessionStorage.setItem(RETURN_KEY, location.pathname + location.hash); } catch {}
       const { error } = await client.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } });
       if (error) setMsg(friendly(error.message));
     }

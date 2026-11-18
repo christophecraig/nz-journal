@@ -12,6 +12,11 @@
   to = "/conditions.html"
   status = 200
 
+[[redirects]]
+  from = "/jour/*"
+  to = "/index.html"
+  status = 200
+
 [functions]
   node_bundler = "esbuild"
 

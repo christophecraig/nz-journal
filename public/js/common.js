@@ -145,3 +145,14 @@ export function addTiles(L, map) {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map);
 }
+
+/** Jour demandé par l'adresse : /jour/AAAA-MM-JJ, ou l'ancien format #AAAA-MM-JJ. Chaîne vide s'il n'y en a pas. */
+export function dayFromUrl(pathname, hash) {
+  const m = /^\/jour\/(\d{4}-\d{2}-\d{2})\/?$/.exec(pathname || "");
+  if (m) return m[1];
+  const h = /^#(\d{4}-\d{2}-\d{2})$/.exec(hash || "");
+  return h ? h[1] : "";
+}
+
+/** Adresse publique d'un jour. */
+export const dayPath = (date) => `/jour/${date}`;

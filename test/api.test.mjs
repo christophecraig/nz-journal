@@ -292,3 +292,15 @@ test("commentaires : suppression réservée à l'admin, clé secrète côté ser
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_KEY;
 });
+
+test("dayFromUrl : /jour/DATE, ancien #DATE, et rien d'autre", async () => {
+  const { dayFromUrl, dayPath } = await import("../public/js/common.js");
+  assert.equal(dayFromUrl("/jour/2026-11-20", ""), "2026-11-20");
+  assert.equal(dayFromUrl("/jour/2026-11-20/", ""), "2026-11-20");
+  assert.equal(dayFromUrl("/", "#2026-11-20"), "2026-11-20");
+  assert.equal(dayFromUrl("/jour/2026-11-20", "#2026-11-21"), "2026-11-20"); // le chemin gagne
+  assert.equal(dayFromUrl("/", ""), "");
+  assert.equal(dayFromUrl("/jour/hello", "#nimporte"), "");
+  assert.equal(dayFromUrl("/admin", ""), "");
+  assert.equal(dayPath("2026-11-20"), "/jour/2026-11-20");
+});

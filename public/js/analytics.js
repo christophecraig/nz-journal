@@ -12,6 +12,7 @@ export function initAnalytics({ admin }) {
   const s = document.createElement("script");
   s.async = true;
   s.dataset.goatcounter = `https://${CONFIG.goatcounter}.goatcounter.com/count`;
+  s.dataset.goatcounterSettings = JSON.stringify({ no_onload: true }); // on compte nous-mêmes (une seule page côté navigateur)
   s.src = "//gc.zgo.at/count.js";
   s.onload = () => {
     loaded = true;

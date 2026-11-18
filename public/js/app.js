@@ -1,6 +1,6 @@
 import {
   api, getToken, setToken, mediaUrl, esc, md, ymd, parseYmd, fmtLong, fmtMonth,
-  videoEmbed, loadLeaflet, addTiles, fmtDur, fmtPace, fmtKm, actLabel, actTitle,
+  videoEmbed, loadLeaflet, addTiles, fmtDur, fmtPace, fmtKm, actLabel, actTitle, dayFromUrl, dayPath,
 } from "./common.js";
 import { mountComments, commentsEnabled, finishAuthRedirect } from "./comments.js";
 import { initAnalytics, track } from "./analytics.js";
@@ -110,7 +110,7 @@ document.querySelectorAll(".tabs button").forEach((b) => {
 let mapFocus = null;
 function focusOnMap(date, place) {
   mapFocus = { date, lat: place.lat, lng: place.lng };
-  if (location.hash) closeDay();
+  if (currentDay()) closeDay();
   setTab("map");
 }
 
@@ -145,14 +145,14 @@ async function showBigMap() {
     for (const a of tracks) {
       L.polyline(a.track, { color: "#c5603a", weight: 4, opacity: 0.9 })
         .addTo(bigMap)
-        .bindPopup(`<strong>${esc(actTitle(a))}</strong><br><a href="#${a.date}">${esc(fmtLong(a.date))}</a>`);
+        .bindPopup(`<strong>${esc(actTitle(a))}</strong><br><a href="${dayUrl(a.date)}" data-day="${a.date}">${esc(fmtLong(a.date))}</a>`);
       latlngs.push(...a.track);
     }
     const markers = points.map((p) => ({
       p,
       m: L.marker([p.lat, p.lng])
         .addTo(bigMap)
-        .bindPopup(`<strong>${esc(p.name)}</strong><br><a href="#${p.date}">${esc(fmtLong(p.date))}</a>`),
+        .bindPopup(`<strong>${esc(p.name)}</strong><br><a href="${dayUrl(p.date)}" data-day="${p.date}">${esc(fmtLong(p.date))}</a>`),
     }));
     const focus = mapFocus;
     mapFocus = null;
@@ -171,20 +171,33 @@ async function showBigMap() {
 
 /* ---------- Fiche d'un jour ---------- */
 
-function go(date) {
-  if (location.hash === "#" + date) route();
-  else location.hash = date;
-}
+/* Public : /jour/AAAA-MM-JJ (vraie adresse partageable). Admin : on garde #AAAA-MM-JJ, car /admin est une page à part. */
+const dayUrl = (date) => (ADMIN ? `${location.pathname}#${date}` : dayPath(date));
+const homeUrl = () => (ADMIN ? location.pathname : "/");
+const currentDay = () => (ADMIN ? (DATE_RE.test(location.hash.slice(1)) ? location.hash.slice(1) : "") : dayFromUrl(location.pathname, location.hash));
 
-function closeDay() {
-  history.pushState(null, "", location.pathname + location.search);
+function go(date) {
+  if (currentDay() !== date) history.pushState(null, "", dayUrl(date));
   route();
 }
 
+function closeDay() {
+  history.pushState(null, "", homeUrl());
+  route();
+}
+
+let firstRoute = true;
 function route() {
-  const d = location.hash.slice(1);
-  if (DATE_RE.test(d) && hasDay(d)) showDay(d);
-  else hideDay();
+  const d = currentDay();
+  // Ancien lien public avec #date : on le convertit en /jour/date sans recharger.
+  if (!ADMIN && d && location.pathname !== dayPath(d)) history.replaceState(null, "", dayPath(d));
+  if (d && hasDay(d)) showDay(d);
+  else {
+    if (d) history.replaceState(null, "", homeUrl()); // jour inconnu
+    hideDay();
+    if (firstRoute) track("/", "Accueil"); // GoatCounter ne compte plus le chargement tout seul (no_onload)
+  }
+  firstRoute = false;
 }
 
 function hideDay() {
@@ -498,7 +511,15 @@ async function boot() {
   route();
 }
 
-window.addEventListener("hashchange", route);
+window.addEventListener("popstate", route);
+window.addEventListener("hashchange", route); // admin et anciens liens
+// Les liens de jour (popups de la carte) naviguent sans recharger la page.
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest?.("a[data-day]");
+  if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return;
+  ev.preventDefault();
+  go(a.dataset.day);
+}, true); // capture : Leaflet bloque la propagation des clics à l'intérieur d'un popup
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && !$("#day").hidden && $("#lightbox").hidden && !document.querySelector(".editor")) closeDay();
 });

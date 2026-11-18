@@ -3,7 +3,7 @@
 Site statique + une fonction Netlify (`netlify/functions/api.mjs`) qui stocke tout dans **Netlify Blobs**
 (textes, photos, notes vocales). Aucune base de données à configurer.
 
-- `/` : calendrier public, carte globale, fiche de chaque jour (`/#2026-11-18` = lien direct vers un jour)
+- `/` : calendrier public, carte globale, fiche de chaque jour (`/jour/2026-11-18` = lien direct ; les anciens liens `/#2026-11-18` sont convertis automatiquement)
 - `/admin` : connexion par mot de passe, puis écriture/modification des jours
 
 ## Déploiement (une fois)
