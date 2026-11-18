@@ -27,6 +27,20 @@ netlify deploy --build --prod
 3. *Site configuration → Environment variables* : ajoute `ADMIN_PASSWORD` (et, facultatif, `SESSION_SECRET`).
 4. Redéploie après avoir ajouté la variable.
 
+## Fonctions côté visiteur
+- **Bandeau « Le voyage en chiffres »** (accueil) : jour X sur N, km en voiture, km courus, D+, étapes, photos, jours écrits ; dates dans `public/js/config.js` (`tripStart` / `tripEnd`).
+- **Onglet Photos** : toutes les miniatures par jour, visionneuse avec « Voir le jour ».
+- **Pastille « nouveau »** : mémorisée dans le navigateur du visiteur (`localStorage`), rien n'est envoyé.
+- **Flux RSS** : `/rss.xml` (30 derniers jours écrits, brouillons exclus).
+- **Rejouer le voyage** : bouton sur la carte (respecte `prefers-reduced-motion`).
+
+## Fonctions côté admin
+- **Brouillon / publié** : la case « Brouillon » rend un jour invisible aux visiteurs (calendrier, carte, lien direct, RSS, aperçus de partage). `GET /api/entries` ne renvoie les brouillons qu'à l'admin connecté.
+  Les fichiers (photos, audio) restent servis par leur clé aléatoire, qui n'apparaît dans aucune réponse publique tant que le jour est en brouillon.
+- **Brouillon local** : le formulaire est gardé dans le navigateur (`localStorage`) quelques secondes après chaque modification ; « Reprendre le brouillon » à la réouverture du jour.
+- **Aperçu** : rendu visiteur de l'état non enregistré.
+- **Envois de médias** : file d'attente avec réessais automatiques, reprise au retour du réseau, boutons Réessayer / Retirer.
+
 ## Utilisation au quotidien
 1. Ouvre `https://ton-site.netlify.app/admin`, connecte-toi (la session dure 30 jours sur l'appareil).
 2. « ＋ Aujourd'hui » ou touche un jour du calendrier.
