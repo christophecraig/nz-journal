@@ -62,6 +62,10 @@ netlify deploy --build --prod
   S'il est indisponible, la carte affiche des lignes droites en pointillés ; il suffit de ré-enregistrer le jour plus tard.
   Variable optionnelle `OSRM_URL` pour pointer vers un autre serveur compatible OSRM (ex. un OpenRouteService/OSRM auto-hébergé).
   La case « Tracer l'itinéraire en voiture » se décoche pour les jours sans trajet.
+- **Photos → étapes (EXIF)** : à l'ajout, l'heure et la position de chaque photo sont lues dans le navigateur (JPEG et HEIC) *avant* le redimensionnement,
+  qui supprime toutes les métadonnées : rien de tout ça n'est envoyé ni stocké. Les photos sont envoyées dans l'ordre de prise de vue, rattachées
+  automatiquement à une étape existante à moins de 400 m, et les autres sont regroupées en lieux proposés (nom deviné par `/api/geocode`) : un appui
+  ajoute les étapes cochées. Sans position dans le fichier (iOS peut la retirer au choix de la photo : bouton « Options » du sélecteur), rien ne change.
 - Chaque photo peut être rattachée à une étape (menu sous la photo) ; elle s'affiche alors sous cette étape. Aucun blob supplémentaire.
 - **Position approximative** (case à cocher par étape) : coordonnées arrondies à ~1 km **avant** stockage, le point précis n'est jamais enregistré.
 - Les fiches enregistrées avant cette fonctionnalité restent valides : leurs « lieux » deviennent la première étape.

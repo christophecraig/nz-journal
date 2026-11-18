@@ -3,6 +3,8 @@ import { renderDayArticle, initDayMaps } from "./dayview.js";
 import { createDraftStore, shouldOffer, stable } from "./draft.js";
 import { withRetry } from "./uploader.js";
 import { SECTIONS, insertSection } from "./sections.js";
+import { readPhotoMeta } from "./exif.js";
+import { nearestWithin, clusterPhotos } from "./photogeo.js";
 
 const MAX_BYTES = 5.5 * 1024 * 1024;
 const $ = (root, s) => root.querySelector(s);
@@ -70,6 +72,7 @@ export function openEditor({ date, entry, acts = [], onDone }) {
       </label>
       <label class="check"><input id="edraft" type="checkbox" ${e.draft ? "checked" : ""}> Brouillon (non visible par les visiteurs)</label>
       <p id="estatus" class="status" role="status"></p>
+      <div id="egeo" class="geosugg" hidden></div>
 
       <label>Titre
         <input id="etitle" maxlength="200" placeholder="Ex. Arrivée à Wellington" value="${esc(e.title)}">
@@ -427,7 +430,9 @@ export function openEditor({ date, entry, acts = [], onDone }) {
         it.fullKey ||= (await sendBlob(it, it.full, "image/jpeg")).key;
         it.thumbKey ||= (await sendBlob(it, it.thumb, "image/jpeg")).key;
         if (closed) return;
-        e.photos.push({ key: it.fullKey, thumb: it.thumbKey, caption: "" });
+        const photo = { key: it.fullKey, thumb: it.thumbKey, caption: "" };
+        e.photos.push(photo);
+        placePhoto(photo, it.meta);
         renderPhotos();
       } else {
         const { key } = await sendBlob(it, it.blob, it.type);
@@ -454,7 +459,11 @@ export function openEditor({ date, entry, acts = [], onDone }) {
       pumping = false;
     }
     if (closed) return;
-    if (!queue.length) status("Médias ajoutés. N'oublie pas d'enregistrer.");
+    if (!queue.some((x) => x.state !== "fail")) suggestStops();
+    if (!queue.length) {
+      status(`Médias ajoutés${autoPlaced ? ` (${autoPlaced} rattachée(s) à une étape d'après leur position)` : ""}. N'oublie pas d'enregistrer.`);
+      autoPlaced = 0;
+    }
     else if (queue.every((x) => x.state === "fail")) status("Certains envois ont échoué : réessaie ou retire-les.", true);
   }
 
@@ -478,11 +487,76 @@ export function openEditor({ date, entry, acts = [], onDone }) {
     queue.length = 0;
   });
 
-  $(root, "#efile").onchange = (ev) => {
+  $(root, "#efile").onchange = async (ev) => {
     const files = [...ev.target.files];
     ev.target.value = "";
-    files.forEach((f, i) => enqueue({ kind: "photo", label: f.name || `Photo ${i + 1}`, file: f }));
+    status("Lecture des photos…");
+    // Heure et position sont lues AVANT le redimensionnement (qui supprime toutes les métadonnées) ; les photos sont envoyées dans l'ordre de prise de vue.
+    const metas = await Promise.all(files.map((f) => readPhotoMeta(f)));
+    const batch = files.map((file, i) => ({ file, meta: metas[i], i }));
+    if (batch.every((b) => b.meta.ts)) batch.sort((a, b) => a.meta.ts.localeCompare(b.meta.ts) || a.i - b.i);
+    if (closed) return;
+    batch.forEach((b) => enqueue({ kind: "photo", label: b.file.name || `Photo ${b.i + 1}`, file: b.file, meta: b.meta }));
   };
+
+  /* ----- Étapes proposées d'après la position des photos ----- */
+
+  const geoEl = $(root, "#egeo");
+  let geoPending = []; // photos géolocalisées sans étape : { lat, lng, ts, time, ref }
+  let geoSeq = 0;
+  let autoPlaced = 0;
+
+  /** Rattache la photo à une étape proche (400 m) ; sinon la garde pour les suggestions. */
+  function placePhoto(photo, meta = {}) {
+    if (!Number.isFinite(meta.lat) || !Number.isFinite(meta.lng)) return;
+    const near = nearestWithin(e.places, meta, 400);
+    if (near?.id) { photo.placeId = near.id; autoPlaced++; }
+    else geoPending.push({ lat: meta.lat, lng: meta.lng, ts: meta.ts, time: meta.time, ref: photo });
+  }
+
+  async function suggestStops() {
+    geoPending = geoPending.filter((x) => e.photos.includes(x.ref) && !x.ref.placeId);
+    const my = ++geoSeq;
+    if (!geoPending.length) { geoEl.hidden = true; return; }
+    const groups = clusterPhotos(geoPending).slice(0, 8);
+    geoEl.hidden = false;
+    geoEl.textContent = "Recherche des lieux de tes photos…";
+    for (const g of groups) {
+      try {
+        const { place } = await api(`/geocode?reverse=1&lat=${g.lat}&lon=${g.lng}`);
+        g.name = place?.name || "";
+      } catch (err) {
+        if (err.status === 401) return fail(err);
+        g.name = "";
+      }
+      if (closed || my !== geoSeq) return; // fermé, ou une suggestion plus récente a pris le relais
+    }
+    geoEl.innerHTML = `
+      <p><strong>📍 ${groups.length > 1 ? `${groups.length} lieux repérés` : "1 lieu repéré"} d'après tes photos</strong></p>
+      ${groups.map((g, i) => `<label class="check"><input type="checkbox" data-g="${i}" checked> <span>${esc(g.name || "Lieu sans nom")}${g.time ? ` · ${esc(g.time)}` : ""} · ${g.items.length} photo${g.items.length > 1 ? "s" : ""}</span></label>`).join("")}
+      <label class="check"><input id="geoapprox" type="checkbox"> Positions approximatives (arrondies à ~1 km)</label>
+      <div class="row"><button type="button" id="geoadd" class="primary">Ajouter les étapes cochées</button><button type="button" id="geoskip">Ignorer</button></div>`;
+    geoEl.querySelector("#geoskip").onclick = () => { geoPending = []; geoEl.hidden = true; };
+    geoEl.querySelector("#geoadd").onclick = () => {
+      const approx = geoEl.querySelector("#geoapprox").checked;
+      const picked = groups.filter((_, i) => geoEl.querySelector(`input[data-g="${i}"]`).checked);
+      for (const g of picked) {
+        const p = { id: newId(), name: g.name || "Étape", lat: g.lat, lng: g.lng };
+        if (g.time) p.time = g.time;
+        if (approx) p.approx = true;
+        e.places.push(p);
+        for (const it of g.items) it.ref.placeId = p.id;
+      }
+      // toutes les étapes ont une heure : on les range dans l'ordre de la journée
+      if (e.places.every((p) => p.time)) e.places.sort((a, b) => a.time.localeCompare(b.time));
+      geoPending = [];
+      geoEl.hidden = true;
+      renderPlaces();
+      renderPhotos();
+      touch();
+      status(`${picked.length} étape(s) ajoutée(s). Vérifie l'ordre et les noms, puis enregistre.`);
+    };
+  }
 
   /* ----- Audio ----- */
 

@@ -254,6 +254,9 @@ audio { width: 100%; }
 /* Éditeur */
 .editor label { display: block; margin: 1rem 0; font-weight: 600; }
 .editor label small, .editor fieldset small, .editor .fold small { display: block; font-weight: 400; color: var(--muted); margin-top: 0.3rem; font-size: 0.8rem; }
+.geosugg { background: #eef6f1; border: 1px solid var(--fern, #2f6f55); border-radius: 12px; padding: 0.6rem 0.9rem; margin: 0.6rem 0; font-size: 0.92rem; }
+.geosugg p { margin: 0 0 0.3rem; }
+.geosugg[hidden] { display: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: -0.4rem 0 1rem; }
 .chip { padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.85rem; }
 .editor label.btn { display: inline-block; margin: 0.5rem 0 0; font-weight: 400; }
