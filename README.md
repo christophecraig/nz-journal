@@ -32,7 +32,7 @@ netlify deploy --build --prod
 - **Onglet Photos** : toutes les miniatures par jour, visionneuse avec « Voir le jour ».
 - **Pastille « nouveau »** : mémorisée dans le navigateur du visiteur (`localStorage`), rien n'est envoyé.
 - **Flux RSS** : `/rss.xml` (30 derniers jours écrits, brouillons exclus).
-- **Rejouer le voyage** : bouton sur la carte (respecte `prefers-reduced-motion`).
+- **Rejouer le voyage** : bouton sur la carte (avec « Réduire les animations » activé, la carte ne glisse pas mais la lecture avance quand même).
 
 ## Fonctions côté admin
 - **Brouillon / publié** : la case « Brouillon » rend un jour invisible aux visiteurs (calendrier, carte, lien direct, RSS, aperçus de partage). `GET /api/entries` ne renvoie les brouillons qu'à l'admin connecté.

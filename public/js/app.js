@@ -261,7 +261,8 @@ function drawFrame(f) {
       .addTo(replay.layer)
       .bindPopup(`<strong>${esc(m.name)}</strong><br><a href="${dayUrl(f.date)}" data-day="${f.date}">${esc(fmtLong(f.date))}</a>`);
   }
-  bigMap.fitBounds(f.points, { padding: [40, 40], maxZoom: 11, animate: true, duration: 0.9 });
+  // « Réduire les animations » : la lecture avance jour par jour, mais la carte saute au lieu de glisser
+  bigMap.fitBounds(f.points, { padding: [40, 40], maxZoom: 11, animate: !reducedMotion(), duration: 0.9 });
   $("#replaylabel").innerHTML = `<a href="${dayUrl(f.date)}" data-day="${f.date}">${esc(fmtLong(f.date))}</a>${f.title ? ` · ${esc(f.title)}` : ""}`;
 }
 
@@ -284,13 +285,6 @@ function toggleReplay() {
   if (!bigMap || !bigL) return;
   const frames = buildFrames(entries, activities);
   if (!frames.length) return;
-  if (reducedMotion()) {
-    // pas d'animation : tout le voyage d'un coup
-    stopReplay();
-    bigMap.fitBounds(frames.flatMap((f) => f.points), { padding: [30, 30], maxZoom: 14, animate: false });
-    $("#replaylabel").textContent = `Voyage complet · ${frames.length} jour${frames.length > 1 ? "s" : ""} sur la carte`;
-    return;
-  }
   if (replay && replay.i >= replay.frames.length) stopReplay(); // lecture terminée, retour en cours : on repart du début
   if (replay?.playing) {
     clearTimeout(replay.timer);
