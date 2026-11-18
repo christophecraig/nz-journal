@@ -164,6 +164,11 @@ button.cell:hover { transform: translateY(-1px); }
 .wallgrid .ph { padding: 0; border: 0; border-radius: 8px; overflow: hidden; aspect-ratio: 1; background: #e1d9c8; }
 .wallgrid .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+/* Brouillon local de l'éditeur */
+.draftbanner { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.6rem 0; padding: 0.6rem 0.8rem; background: #fff3e6; border: 1px solid var(--clay); border-radius: 10px; font-size: 0.9rem; }
+.draftbanner[hidden] { display: none; }
+.draftbanner span { flex: 1 1 100%; }
+
 /* Brouillons (admin) */
 .cell.draft { border-style: dashed; opacity: 0.8; }
 .draftnote { margin: 0.5rem 0 0; padding: 0.4rem 0.7rem; border: 1px dashed var(--clay); border-radius: 10px; color: var(--clay); font-size: 0.9rem; }

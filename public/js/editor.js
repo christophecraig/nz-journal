@@ -1,4 +1,5 @@
 import { api, esc, mediaUrl, fmtLong, setToken, loadLeaflet, addTiles } from "./common.js";
+import { createDraftStore, shouldOffer, stable } from "./draft.js";
 
 const MAX_BYTES = 5.5 * 1024 * 1024;
 const $ = (root, s) => root.querySelector(s);
@@ -54,6 +55,11 @@ export function openEditor({ date, entry, onDone }) {
         <button type="button" id="esave" class="primary">Enregistrer</button>
       </div>
       <p class="kicker">${esc(fmtLong(date))}</p>
+      <div id="edraftbanner" class="draftbanner" role="status" hidden>
+        <span id="edraftmsg"></span>
+        <button type="button" id="drresume" class="primary">Reprendre le brouillon</button>
+        <button type="button" id="drignore">Ignorer</button>
+      </div>
       <label>Date du jour
         <input id="edate" type="date" value="${esc(date)}">
         <small>Pour déplacer cette fiche (photos, étapes et médias suivent), change la date puis enregistre.</small>
@@ -146,7 +152,11 @@ export function openEditor({ date, entry, onDone }) {
     }
     status(err.message || String(err), true);
   };
+  let closed = false;
+  const cleanups = []; // écouteurs et minuteurs à retirer à la fermeture
   const close = () => {
+    closed = true;
+    cleanups.forEach((f) => f());
     root.remove();
     updateLock();
   };
@@ -274,6 +284,64 @@ export function openEditor({ date, entry, onDone }) {
 
   renderPhotos(); renderAudios(); renderVideos(); renderPlaces();
 
+  /* ----- Brouillon local : survit à un rechargement ou à une coupure réseau ----- */
+
+  const drafts = createDraftStore();
+  const snapshot = () => ({
+    title: $(root, "#etitle").value,
+    text: $(root, "#etext").value,
+    date: $(root, "#edate").value,
+    draft: $(root, "#edraft").checked,
+    routeMode: e.routeMode,
+    photos: e.photos,
+    audios: e.audios,
+    videos: e.videos,
+    places: e.places,
+  });
+  const initialForm = JSON.parse(JSON.stringify(snapshot()));
+  const isDirty = () => stable(snapshot()) !== stable(initialForm);
+  let saveTimer = null;
+  const flushDraft = () => {
+    clearTimeout(saveTimer);
+    if (closed) return;
+    if (isDirty()) drafts.save(date, JSON.parse(JSON.stringify(snapshot())));
+    else drafts.clear(date);
+  };
+  /** À appeler après toute modification : le brouillon est écrit quelques secondes après la dernière. */
+  const touch = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushDraft, 2500);
+  };
+  for (const ev of ["input", "change", "click"]) root.addEventListener(ev, touch);
+  const onHidden = () => { if (document.visibilityState === "hidden") flushDraft(); };
+  window.addEventListener("pagehide", flushDraft);
+  document.addEventListener("visibilitychange", onHidden);
+  cleanups.push(() => {
+    clearTimeout(saveTimer);
+    window.removeEventListener("pagehide", flushDraft);
+    document.removeEventListener("visibilitychange", onHidden);
+  });
+
+  const applyForm = (f) => {
+    $(root, "#etitle").value = f.title;
+    $(root, "#etext").value = f.text;
+    if (f.date) $(root, "#edate").value = f.date;
+    $(root, "#edraft").checked = f.draft;
+    e.routeMode = f.routeMode;
+    $(root, "#eroute").checked = f.routeMode === "drive";
+    e.photos = f.photos; e.audios = f.audios; e.videos = f.videos; e.places = f.places;
+    for (const p of e.places) if (!p.id) p.id = newId();
+    renderPhotos(); renderAudios(); renderVideos(); renderPlaces();
+  };
+  const offered = drafts.load(date);
+  if (offered && shouldOffer(offered, entry, initialForm)) {
+    const banner = $(root, "#edraftbanner");
+    $(root, "#edraftmsg").textContent = `Brouillon non enregistré trouvé (${new Date(offered.ts).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}).`;
+    banner.hidden = false;
+    $(root, "#drresume").onclick = () => { applyForm(offered.form); banner.hidden = true; status("Brouillon repris. N'oublie pas d'enregistrer."); };
+    $(root, "#drignore").onclick = () => { drafts.clear(date); banner.hidden = true; };
+  }
+
   /* ----- Photos ----- */
 
   $(root, "#efile").onchange = async (ev) => {
@@ -290,6 +358,7 @@ export function openEditor({ date, entry, onDone }) {
         const b = await upload(thumb, "image/jpeg");
         e.photos.push({ key: a.key, thumb: b.key, caption: "" });
         renderPhotos();
+        touch();
       } catch (err) {
         return fail(new Error(`Photo ${i + 1} : ${err.message}`));
       }
@@ -306,6 +375,7 @@ export function openEditor({ date, entry, onDone }) {
       const { key } = await upload(blob, type);
       e.audios.push({ key, label });
       renderAudios();
+      touch();
       status("Note vocale ajoutée. N'oublie pas d'enregistrer.");
     } catch (err) {
       fail(err);
@@ -518,6 +588,7 @@ export function openEditor({ date, entry, onDone }) {
     status("Enregistrement…");
     try {
       await api(`/entries/${date}`, { method: "PUT", body: e });
+      drafts.clear(date); // enregistré : le brouillon local n'a plus de raison d'être
       close();
       await onDone(newDate);
     } catch (err) {
@@ -530,6 +601,7 @@ export function openEditor({ date, entry, onDone }) {
     if (!confirm("Supprimer définitivement ce jour et ses médias ?")) return;
     try {
       await api(`/entries/${date}`, { method: "DELETE" });
+      drafts.clear(date);
       close();
       await onDone(null);
     } catch (err) {
@@ -538,7 +610,9 @@ export function openEditor({ date, entry, onDone }) {
   });
 
   $(root, "#ecancel").onclick = () => {
+    if (isDirty() && !confirm("Abandonner les modifications non enregistrées ? Le brouillon local sera effacé.")) return;
     if (rec) rec.stop();
+    drafts.clear(date); // annulation explicite
     close();
   };
 }

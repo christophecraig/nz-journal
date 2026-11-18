@@ -6,6 +6,7 @@ export function safeStorage(getter = () => globalThis.localStorage) {
   return {
     get(k) { try { return getter().getItem(k); } catch { return null; } },
     set(k, v) { try { getter().setItem(k, v); return true; } catch { return false; } },
+    remove(k) { try { getter().removeItem(k); return true; } catch { return false; } },
   };
 }
 
