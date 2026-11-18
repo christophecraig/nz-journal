@@ -51,6 +51,19 @@ export async function finishAuthRedirect() {
   }
 }
 
+/** Admin : les derniers commentaires, tous jours confondus (lecture publique, la même que celle des visiteurs). */
+export async function recentComments(limit = 40) {
+  if (!commentsEnabled()) return [];
+  const c = await getClient().catch(() => { throw new Error("Les commentaires sont indisponibles pour le moment."); });
+  const { data, error } = await c
+    .from("comments")
+    .select("id, day, body, created_at, profiles(display_name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error("Impossible de charger les commentaires.");
+  return data || [];
+}
+
 const fmtWhen = (iso) =>
   new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 

@@ -3,11 +3,12 @@ import {
   loadLeaflet, addTiles, fmtKm, actTitle, dayFromUrl, dayPath,
 } from "./common.js";
 import { dayLine, renderDayArticle, initDayMaps } from "./dayview.js";
-import { mountComments, commentsEnabled, finishAuthRedirect } from "./comments.js";
+import { mountComments, commentsEnabled, finishAuthRedirect, recentComments } from "./comments.js";
 import { initAnalytics, track } from "./analytics.js";
 import { CONFIG } from "./config.js";
 import { computeTripStats, statChips } from "./stats.js";
-import { createSeen } from "./seen.js";
+import { createSeen, safeStorage } from "./seen.js";
+import { countNew, newestDate } from "./recent.js";
 import { buildWall } from "./wall.js";
 import { buildFrames } from "./replay.js";
 import { daysToWrite } from "./todo.js";
@@ -154,10 +155,68 @@ function setTab(name) {
   $("#cal").hidden = name !== "cal";
   $("#mapview").hidden = name !== "map";
   $("#photosview").hidden = name !== "photos";
+  if ($("#commentsview")) $("#commentsview").hidden = name !== "comments";
   if (name !== "map") stopReplay();
   if (name === "map") showBigMap();
   if (name === "photos") renderWall();
+  if (name === "comments") showRecentComments();
 }
+
+/* ---------- Admin : derniers commentaires ---------- */
+
+const COMMENTS_SEEN_KEY = "nzj_admin_comments_seen";
+const store = safeStorage();
+
+async function refreshCommentsBadge() {
+  if (!commentsEnabled()) return;
+  $("#commentstab").hidden = false;
+  try {
+    const rows = await recentComments();
+    const n = countNew(rows, store.get(COMMENTS_SEEN_KEY));
+    $("#cbadge").hidden = !n;
+    $("#cbadge").textContent = n > 99 ? "99+" : String(n);
+  } catch { /* pas de pastille : l'onglet affichera l'erreur au besoin */ }
+}
+
+async function showRecentComments() {
+  const box = $("#recent");
+  const note = $("#recentnote");
+  note.textContent = "Chargement…";
+  let rows;
+  try {
+    rows = await recentComments();
+  } catch (e) {
+    note.textContent = e.message;
+    return;
+  }
+  const fresh = countNew(rows, store.get(COMMENTS_SEEN_KEY));
+  note.textContent = rows.length ? "" : "Aucun commentaire pour l'instant.";
+  box.innerHTML = rows
+    .map(
+      (c, i) => `<article class="comment${i < fresh ? " fresh" : ""}" data-id="${esc(c.id)}">
+        <header><strong>${esc(c.profiles?.display_name || "Anonyme")}</strong>
+          <a href="${dayUrl(c.day)}" data-day="${esc(c.day)}">${esc(fmtLong(c.day))}</a>
+          <span class="muted">${esc(new Date(c.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</span>
+          <button type="button" class="cdel" title="Supprimer">✕</button></header>
+        <p>${esc(c.body)}</p>
+      </article>`
+    )
+    .join("");
+  const newest = newestDate(rows);
+  if (newest) store.set(COMMENTS_SEEN_KEY, newest);
+  $("#cbadge").hidden = true;
+}
+
+$("#recent")?.addEventListener("click", async (ev) => {
+  const b = ev.target.closest(".cdel");
+  if (!b || !confirm("Supprimer ce commentaire ?")) return;
+  try {
+    await api(`/comments/${encodeURIComponent(b.closest(".comment").dataset.id)}`, { method: "DELETE" });
+    await showRecentComments();
+  } catch (e) {
+    $("#recentnote").textContent = e.message;
+  }
+});
 
 /* ---------- Mur de photos ---------- */
 
@@ -567,6 +626,11 @@ async function boot() {
     $("#today").onclick = () => edit(ymd(new Date()));
     $("#logout").onclick = () => { setToken(null); location.reload(); };
     corosInit();
+    if (CONFIG.goatcounter) {
+      const a = $("#statslink");
+      a.href = `https://${CONFIG.goatcounter}.goatcounter.com`;
+      a.hidden = false;
+    }
   }
   try {
     await load();
@@ -576,6 +640,7 @@ async function boot() {
   }
   pickInitialMonth();
   renderCalendar();
+  if (ADMIN) refreshCommentsBadge();
   await finishAuthRedirect(); // retour de Google : on reprend le jour que le visiteur lisait
   route();
 }

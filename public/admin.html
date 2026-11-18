@@ -22,6 +22,7 @@
     <div class="adminbar">
       <button id="today" class="primary">＋ Aujourd'hui</button>
       <a class="btn" href="/">Voir le site</a>
+      <a id="statslink" class="btn" hidden target="_blank" rel="noopener">📊 Statistiques</a>
       <button id="logout">Déconnexion</button>
     </div>
   </header>
@@ -40,6 +41,7 @@
       <button data-tab="cal" class="on">Calendrier</button>
       <button data-tab="map">Carte</button>
       <button data-tab="photos">Photos</button>
+      <button data-tab="comments" id="commentstab" hidden>Commentaires <span id="cbadge" class="badge" hidden></span></button>
     </nav>
     <section id="cal">
       <div class="monthnav">
@@ -54,6 +56,10 @@
     <section id="photosview" hidden>
       <div id="wall"></div>
       <p id="wallnote" class="muted"></p>
+    </section>
+    <section id="commentsview" hidden>
+      <div id="recent"></div>
+      <p id="recentnote" class="muted"></p>
     </section>
     <section id="mapview" hidden>
       <div class="replaybar">

@@ -180,6 +180,9 @@ button.cell:hover { transform: translateY(-1px); }
 .draftbanner span { flex: 1 1 100%; }
 
 /* Brouillons (admin) */
+.badge { display: inline-block; min-width: 1.2em; padding: 0 0.35em; border-radius: 999px; background: var(--clay); color: #fff; font-size: 0.75rem; text-align: center; }
+.comment.fresh { border-left: 4px solid var(--clay); }
+#recent .comment header a { font-size: 0.9rem; }
 .todobar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem; margin: 0.6rem 0; }
 .todobar[hidden] { display: none; }
 .todobar p { margin: 0; flex: 1 1 200px; font-size: 0.92rem; }
