@@ -30,6 +30,7 @@ test("dayMeta : titre, résumé, première miniature ; repli sans photo / sans t
   assert.match(bare.title, /^Mercredi 18 novembre 2026 · /);
   assert.equal(bare.image, `${ORIGIN}/og-image.png`);
   assert.equal(dayMeta(null, ORIGIN), null);
+  assert.equal(dayMeta({ date: "2026-11-18", title: "Secret", draft: true }, ORIGIN), null); // brouillon : pas d'aperçu
   assert.equal(dayMeta({ date: "2026-13-45" }, ORIGIN), null);
   assert.ok(isRealDate("2026-02-28") && !isRealDate("2026-02-30") && !isRealDate("x"));
 });

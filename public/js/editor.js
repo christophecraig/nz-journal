@@ -58,6 +58,7 @@ export function openEditor({ date, entry, onDone }) {
         <input id="edate" type="date" value="${esc(date)}">
         <small>Pour déplacer cette fiche (photos, étapes et médias suivent), change la date puis enregistre.</small>
       </label>
+      <label class="check"><input id="edraft" type="checkbox" ${e.draft ? "checked" : ""}> Brouillon (non visible par les visiteurs)</label>
       <p id="estatus" class="status" role="status"></p>
 
       <label>Titre
@@ -507,6 +508,7 @@ export function openEditor({ date, entry, onDone }) {
     if (!addVideo() || !addPlace()) return;
     e.title = $(root, "#etitle").value.trim();
     e.text = $(root, "#etext").value;
+    e.draft = $(root, "#edraft").checked;
     const newDate = $(root, "#edate").value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return fail(new Error("Date invalide."));
     if (newDate !== date) e.moveTo = newDate;

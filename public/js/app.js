@@ -24,7 +24,7 @@ let dayMaps = null;
 /* ---------- Données ---------- */
 
 async function load() {
-  const [r, a] = await Promise.all([api("/entries"), api("/activities").catch(() => ({ activities: [] }))]);
+  const [r, a] = await Promise.all([api("/entries", { auth: ADMIN }), api("/activities").catch(() => ({ activities: [] }))]);
   entries = r.entries || [];
   byDate = Object.fromEntries(entries.map((e) => [e.date, e]));
   activities = a.activities || [];
@@ -79,16 +79,17 @@ function renderCalendar() {
     const cls = ["cell"];
     if (ds === todayStr) cls.push("today");
     if (day) cls.push("has");
+    if (ADMIN && e?.draft) cls.push("draft");
     const thumb = e?.photos?.[0]?.thumb || e?.photos?.[0]?.key;
     if (thumb) cls.push("photo");
     const style = thumb ? ` style="--bg:url('${mediaUrl(thumb)}')"` : "";
     const label = e?.title || (acts.length ? "🏃 " + acts.map((a) => fmtKm(a.distanceKm || 0) + " km").join(" + ") : "");
     const badges = day
-      ? `<span class="badges">${acts.length ? "🏃" : ""}${e?.audios?.length ? "🎙" : ""}${e?.videos?.length ? "▶" : ""}${e?.places?.length ? "📍" : ""}</span>`
+      ? `<span class="badges">${acts.length ? "🏃" : ""}${e?.audios?.length ? "🎙" : ""}${e?.videos?.length ? "▶" : ""}${e?.places?.length ? "📍" : ""}${ADMIN && e?.draft ? "✎" : ""}</span>`
       : "";
     const inner = `<span class="n">${d}</span>${day ? `<span class="t">${esc(label)}</span>${badges}` : ""}`;
     if (day || ADMIN) {
-      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}">${inner}</button>`;
+      html += `<button class="${cls.join(" ")}" data-date="${ds}"${style} aria-label="${esc(fmtLong(ds))}${label ? " : " + esc(label) : ""}${ADMIN && e?.draft ? " (brouillon)" : ""}">${inner}</button>`;
     } else {
       html += `<div class="${cls.join(" ")}">${inner}</div>`;
     }
@@ -245,6 +246,7 @@ function showDay(date) {
           <button id="snext" ${next ? "" : "disabled"} aria-label="Jour suivant">›</button>
         </div>
       </div>
+      ${ADMIN && e.draft ? `<p class="draftnote">✎ Brouillon : ce jour n'est pas visible par les visiteurs.</p>` : ""}
       <article>${renderDayArticle(e, acts, { extra: commentsEnabled() ? `<section id="comments" class="comments"></section>` : "" })}
       </article>
     </div>`;

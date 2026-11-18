@@ -37,7 +37,7 @@ export const isRealDate = (s) => {
 
 /** Métadonnées de partage d'un jour, ou null si la fiche n'existe pas (→ aperçu générique). */
 export function dayMeta(entry, origin) {
-  if (!entry || !isRealDate(entry.date)) return null;
+  if (!entry || entry.draft || !isRealDate(entry.date)) return null; // un brouillon n'a pas d'aperçu
   const title = (entry.title || "").trim() || fmtLongFr(entry.date);
   const text = plainSnippet(entry.text);
   const photo = entry.photos?.[0];

@@ -337,3 +337,19 @@ test("changer la date d'une fiche : médias conservés, refus si la date est pri
   // sans autorisation : refusé
   assert.equal((await call("/api/entries/2027-03-16", { method: "PUT", body: JSON.stringify({ moveTo: "2027-03-17" }) })).status, 401);
 });
+
+test("brouillons : invisibles pour un visiteur, visibles pour l'admin, publiés par défaut", async () => {
+  const put = (d, b) => call(`/api/entries/${d}`, { method: "PUT", headers: A, body: JSON.stringify(b) });
+  const list = async (headers) => (await json(await call("/api/entries", { headers }))).entries.filter((e) => ["2026-11-21", "2026-11-22", "2026-11-23"].includes(e.date)).map((e) => e.date + (e.draft ? "*" : ""));
+  await put("2026-11-21", { title: "Publié" });
+  await put("2026-11-22", { title: "Brouillon", draft: true });
+  await put("2026-11-23", { title: "Brouillon", draft: "oui" }); // seul `true` compte
+  assert.deepEqual(await list(), ["2026-11-21", "2026-11-23"]); // visiteur
+  assert.deepEqual(await list(A), ["2026-11-21", "2026-11-22*", "2026-11-23"]); // admin
+  assert.deepEqual(await list({ authorization: "Bearer 9999999999999.xxxx" }), ["2026-11-21", "2026-11-23"]); // faux jeton = visiteur
+  // repasser en publié
+  const r = await put("2026-11-22", { title: "Brouillon", draft: false });
+  assert.equal("draft" in (await json(r)).entry, false);
+  assert.deepEqual(await list(), ["2026-11-21", "2026-11-22", "2026-11-23"]);
+  for (const d of ["2026-11-21", "2026-11-22", "2026-11-23"]) await call(`/api/entries/${d}`, { method: "DELETE", headers: A });
+});

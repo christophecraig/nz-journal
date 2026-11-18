@@ -141,6 +141,7 @@ function cleanEntry(date, b) {
     videos,
     places,
     routeMode: b.routeMode === "none" ? "none" : "drive",
+    ...(b.draft === true ? { draft: true } : {}), // absent = publié (les anciennes fiches le restent)
     updatedAt: new Date().toISOString(),
   };
 }
@@ -153,10 +154,11 @@ const mediaKeysOf = (e) =>
 
 /* ---------- Handlers ---------- */
 
-async function listEntries(s) {
+/** Les brouillons ne sont renvoyés qu'à l'admin authentifié. */
+async function listEntries(s, admin = false) {
   const { blobs } = await s.list({ prefix: "entries/" });
   const all = await Promise.all(blobs.map((b) => s.get(b.key, { type: "json" })));
-  const entries = all.filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+  const entries = all.filter((e) => e && (admin || !e.draft)).sort((a, b) => a.date.localeCompare(b.date));
   return json({ entries });
 }
 
@@ -343,7 +345,7 @@ export default async (req) => {
     }
 
     if (res === "entries") {
-      if (method === "GET" && !id) return await listEntries(s);
+      if (method === "GET" && !id) return await listEntries(s, isAuthed(req));
       if (!isAuthed(req)) return json({ error: "Non autorisé" }, 401);
       if (method === "PUT" && id) return await putEntry(s, id, req);
       if (method === "DELETE" && id) return await deleteEntry(s, id);

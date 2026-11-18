@@ -6,10 +6,11 @@ export const setToken = (t) => {
   try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {}
 };
 
-export async function api(path, { method = "GET", body, headers = {} } = {}) {
+/** `auth: false` : requête anonyme même si ce navigateur est connecté en admin (la page publique voit ce que voit un visiteur). */
+export async function api(path, { method = "GET", body, headers = {}, auth = true } = {}) {
   const h = { ...headers };
   const t = getToken();
-  if (t) h.authorization = "Bearer " + t;
+  if (t && auth) h.authorization = "Bearer " + t;
   let payload = body;
   if (body !== undefined && !(body instanceof Blob)) {
     payload = JSON.stringify(body);
