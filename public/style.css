@@ -83,6 +83,32 @@ button.danger { color: var(--clay); border-color: var(--clay); width: 100%; marg
 main { max-width: 880px; margin: 0 auto; padding: 0.5rem 1rem 3rem; }
 main > .tabs { width: max-content; margin: 0.5rem 0 1rem; }
 
+/* Bandeau « Le voyage en chiffres » : une ligne, défilable sur mobile */
+.tripstats {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0.1rem 0 0.4rem;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tripstats::-webkit-scrollbar { display: none; }
+.tripstats[hidden] { display: none; }
+.tripstats li {
+  flex: none;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+.tripstats li:first-child { border-color: var(--fern); color: var(--fern-dark); font-weight: 600; }
+
 /* Calendrier */
 .monthnav { display: flex; align-items: center; justify-content: space-between; margin: 1rem 0 0.75rem; }
 .monthnav h2 { font-size: 1.5rem; }

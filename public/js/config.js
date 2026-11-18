@@ -6,4 +6,6 @@ export const CONFIG = {
   google: true, // bouton « Continuer avec Google » (à activer aussi dans Supabase)
   emailPassword: true, // inscription par e-mail + mot de passe, SANS e-mail de confirmation
   goatcounter: "nz-journal", // code GoatCounter (https://nz-journal.goatcounter.com)
+  tripStart: "2026-11-15", // arrivée en Nouvelle-Zélande (AAAA-MM-JJ) ; sert au bandeau « Le voyage en chiffres »
+  tripEnd: "2026-12-12", // retour (AAAA-MM-JJ) ; laisse vide pour ne pas afficher « Jour X sur N »
 };
