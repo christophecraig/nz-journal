@@ -4,6 +4,8 @@ import {
 } from "./common.js";
 import { mountComments, commentsEnabled, finishAuthRedirect } from "./comments.js";
 import { initAnalytics, track } from "./analytics.js";
+import { CONFIG } from "./config.js";
+import { computeTripStats, statChips } from "./stats.js";
 
 const ADMIN = document.body.dataset.admin === "1";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,6 +29,7 @@ async function load() {
   activities = a.activities || [];
   actsByDate = {};
   for (const x of activities) (actsByDate[x.date] ||= []).push(x);
+  renderTripStats();
 }
 
 const hasDay = (d) => !!(byDate[d] || actsByDate[d]);
@@ -44,6 +47,18 @@ function pickInitialMonth() {
 
 const updateLock = () =>
   document.body.classList.toggle("lock", !!document.querySelector(".sheet:not([hidden]), .editor, #lightbox:not([hidden])"));
+
+/* ---------- Bandeau « Le voyage en chiffres » ---------- */
+
+function renderTripStats() {
+  const box = $("#trip");
+  if (!box) return; // page sans bandeau (admin)
+  const chips = statChips(
+    computeTripStats({ entries, activities, start: CONFIG.tripStart, end: CONFIG.tripEnd, today: ymd(new Date()) })
+  );
+  box.innerHTML = chips.map((c) => `<li><span aria-hidden="true">${c.icon}</span> ${esc(c.text)}</li>`).join("");
+  box.hidden = !chips.length;
+}
 
 /* ---------- Calendrier ---------- */
 
