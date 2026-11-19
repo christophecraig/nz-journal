@@ -655,6 +655,24 @@ async function boot() {
   warmUp(prefetchComments); // carte et commentaires prêts avant le premier clic
 }
 
+/* ---------- PWA : service worker (visiteurs seulement) et mention hors ligne ---------- */
+
+function initOffline() {
+  const note = $("#offline");
+  if (!note) return;
+  const sync = () => { note.hidden = navigator.onLine !== false; };
+  window.addEventListener("online", sync);
+  window.addEventListener("offline", sync);
+  sync();
+}
+
+function registerServiceWorker() {
+  if (ADMIN || !("serviceWorker" in navigator)) return; // l'admin n'enregistre rien (le service worker ignore de toute façon /admin et Authorization)
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { type: "module", updateViaCache: "none" }).catch(() => {}); // sans service worker, le site marche comme avant
+  });
+}
+
 window.addEventListener("popstate", route);
 window.addEventListener("hashchange", route); // admin et anciens liens
 // Les liens de jour (popups de la carte) naviguent sans recharger la page.
@@ -667,4 +685,6 @@ document.addEventListener("click", (ev) => {
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && !$("#day").hidden && $("#lightbox").hidden && !document.querySelector(".editor")) closeDay();
 });
+initOffline();
+registerServiceWorker();
 boot();

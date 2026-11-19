@@ -103,6 +103,29 @@ Notes : Netlify n'exécute les fonctions planifiées que sur le déploiement de 
 3 nouvelles courses (limite de durée des fonctions) ; le reste suit à l'exécution suivante. Si Coros change le format de ses
 réponses, la synchro s'arrête avec une erreur visible dans la ligne de statut sans casser le site.
 
+## Installation et service worker (PWA)
+
+Le site est installable (« Ajouter à l'écran d'accueil ») et garde une copie de ce qui a déjà été consulté pour s'ouvrir avec un mauvais réseau. Le service worker (`public/sw.js`) est volontairement prudent :
+
+- pages, JS, CSS et données publiques : **réseau d'abord** ; la copie locale ne sert que si le réseau échoue ou met plus de 3 s à répondre. En ligne, on a donc toujours la dernière version (aucune liste de fichiers à versionner) ;
+- photos : cache d'abord (leurs noms sont des identifiants uniques et immuables), plafonné à 200 ;
+- jamais interceptés : `/admin`, toute requête avec `Authorization` (donc les brouillons), les requêtes `Range` (audio), les `POST`/`PUT`/`DELETE`, les domaines tiers et les URL avec paramètres. La règle est dans `public/js/sw-strategy.js` (testée).
+
+**Interrupteur de secours** si une version du service worker pose problème : remplacer le contenu de `public/sw.js` par le code ci-dessous et déployer. Chaque navigateur vide ses caches et le désinscrit à sa prochaine visite.
+
+```js
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) =>
+  event.waitUntil(
+    (async () => {
+      for (const k of await caches.keys()) await caches.delete(k);
+      await self.registration.unregister();
+      for (const c of await self.clients.matchAll()) c.navigate(c.url);
+    })()
+  )
+);
+```
+
 ## Tests
 ```bash
 npm test      # node --test : décodeur FIT, client OAuth/MCP Coros (faux serveur), API

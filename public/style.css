@@ -51,6 +51,7 @@ button.danger { color: var(--clay); border-color: var(--clay); width: 100%; marg
   text-decoration: none;
 }
 .muted { color: var(--muted); font-size: 0.9rem; }
+#offline { margin: 0.5rem 1rem 0; text-align: center; }
 .err { color: var(--clay); }
 .kicker {
   margin: 0 0 0.25rem;

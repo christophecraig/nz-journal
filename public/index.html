@@ -19,6 +19,11 @@
   <meta name="twitter:title" content="Carnet de bord · Nouvelle-Zélande">
   <meta name="twitter:description" content="Carnet de bord de voyage en Nouvelle-Zélande : un jour, une page.">
   <meta name="twitter:image" content="https://nz-journal.netlify.app/og-image.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Carnet NZ">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="alternate" type="application/rss+xml" title="Carnet de bord NZ" href="/rss.xml">
@@ -60,6 +65,7 @@
     </nav>
   </header>
 
+  <p id="offline" class="muted" role="status" hidden>Hors ligne : ce que tu vois peut ne pas être à jour.</p>
   <main>
     <section id="cal">
       <ul id="trip" class="tripstats" aria-label="Le voyage en chiffres"></ul>
