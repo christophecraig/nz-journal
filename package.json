@@ -5,9 +5,11 @@
   "type": "module",
   "description": "Carnet de bord de voyage : calendrier, photos, notes vocales, lieux",
   "dependencies": {
-    "@netlify/blobs": ">=8.0.0"
+    "@netlify/blobs": ">=8.0.0",
+    "leaflet": "1.9.4"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "vendor": "node scripts/vendor-leaflet.mjs"
   }
 }

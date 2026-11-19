@@ -23,6 +23,9 @@ function getClient() {
   return clientPromise;
 }
 
+/** Précharge le client Supabase (téléchargement seulement, aucune requête de données). */
+export const prefetchComments = () => (commentsEnabled() ? getClient() : Promise.resolve());
+
 /** À appeler au démarrage : termine la connexion Google puis ramène le visiteur sur le jour qu'il lisait. */
 export async function finishAuthRedirect() {
   if (!commentsEnabled()) return;

@@ -1,9 +1,9 @@
 import {
   api, getToken, setToken, mediaUrl, esc, ymd, parseYmd, fmtLong, fmtMonth,
-  loadLeaflet, addTiles, fmtKm, actTitle, dayFromUrl, dayPath,
+  loadLeaflet, addTiles, fmtKm, actTitle, dayFromUrl, dayPath, warmUp,
 } from "./common.js";
 import { dayLine, renderDayArticle, initDayMaps } from "./dayview.js";
-import { mountComments, commentsEnabled, finishAuthRedirect, recentComments } from "./comments.js";
+import { mountComments, commentsEnabled, finishAuthRedirect, recentComments, prefetchComments } from "./comments.js";
 import { initAnalytics, track } from "./analytics.js";
 import { CONFIG } from "./config.js";
 import { computeTripStats, statChips } from "./stats.js";
@@ -648,6 +648,7 @@ async function boot() {
   if (ADMIN) refreshCommentsBadge();
   await finishAuthRedirect(); // retour de Google : on reprend le jour que le visiteur lisait
   route();
+  warmUp(prefetchComments); // carte et commentaires prêts avant le premier clic
 }
 
 window.addEventListener("popstate", route);

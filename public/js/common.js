@@ -107,23 +107,52 @@ export const actTitle = (a) => (a.distanceKm ? `${actLabel(a)} · ${fmtKm(a.dist
 export const osmLink = (lat, lng) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=14/${lat}/${lng}`;
 
-/* Leaflet chargé à la demande */
+/* Leaflet chargé à la demande : d'abord depuis le site (copié au déploiement), sinon depuis unpkg en secours */
+const LEAFLET_BASES = ["/vendor/leaflet/", "https://unpkg.com/leaflet@1.9.4/dist/"];
 let leafletPromise;
-export function loadLeaflet() {
-  if (window.L) return Promise.resolve(window.L);
-  if (leafletPromise) return leafletPromise;
-  leafletPromise = new Promise((resolve, reject) => {
+function loadLeafletFrom(base) {
+  return new Promise((resolve, reject) => {
     const css = document.createElement("link");
     css.rel = "stylesheet";
-    css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    css.href = base + "leaflet.css";
     document.head.appendChild(css);
     const js = document.createElement("script");
-    js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    js.onload = () => resolve(window.L);
-    js.onerror = () => reject(new Error("Carte indisponible"));
+    js.src = base + "leaflet.js";
+    js.onload = () => (window.L ? resolve(window.L) : reject(new Error("Leaflet absent")));
+    js.onerror = () => {
+      css.remove();
+      js.remove();
+      reject(new Error("Carte indisponible"));
+    };
     document.head.appendChild(js);
   });
+}
+export function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  leafletPromise ||= (async () => {
+    let last;
+    for (const base of LEAFLET_BASES) {
+      try {
+        return await loadLeafletFrom(base);
+      } catch (e) {
+        last = e;
+      }
+    }
+    leafletPromise = null; // nouvel essai possible plus tard (réseau revenu)
+    throw last || new Error("Carte indisponible");
+  })();
   return leafletPromise;
+}
+
+/** Charge Leaflet et supabase-js pendant les temps morts, pour que carte et commentaires apparaissent sans attente. Sans effet en mode « économiser les données ». */
+export function warmUp(...extra) {
+  if (navigator.connection?.saveData) return;
+  const run = () => {
+    loadLeaflet().catch(() => {});
+    for (const f of extra) Promise.resolve().then(f).catch(() => {});
+  };
+  if ("requestIdleCallback" in window) requestIdleCallback(run, { timeout: 4000 });
+  else setTimeout(run, 1500);
 }
 
 export function addTiles(L, map) {

@@ -1,4 +1,5 @@
 [build]
+  command = "node scripts/vendor-leaflet.mjs"
   publish = "public"
   functions = "netlify/functions"
 

@@ -111,7 +111,7 @@ npm test      # node --test : décodeur FIT, client OAuth/MCP Coros (faux serveu
 ## Limites à connaître
 - Chaque fichier envoyé fait **5 Mo max** (limite de 6 Mo par requête des fonctions Netlify). Les photos sont réduites
   à 1600 px (~300–600 Ko), donc sans souci. Les vidéos ne sont pas gérées.
-- La carte utilise Leaflet (unpkg) et les tuiles OpenStreetMap : prévu pour un petit trafic.
+- La carte utilise Leaflet (copié dans `public/vendor/leaflet` au déploiement par `scripts/vendor-leaflet.mjs`, avec unpkg en secours) et les tuiles OpenStreetMap : prévu pour un petit trafic.
 - Les données vivent dans Netlify Blobs, partagées entre tous les déploiements du site : un redéploiement ne les efface pas.
   Une sauvegarde manuelle n'est pas prévue ; pense à garder les photos originales sur ton téléphone.
 - `ADMIN_PASSWORD` sert aussi à signer les sessions ; changer la valeur déconnecte tous les appareils.
