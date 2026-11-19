@@ -24,6 +24,25 @@
   <link rel="alternate" type="application/rss+xml" title="Carnet de bord NZ" href="/rss.xml">
   <link rel="preconnect" href="https://tile.openstreetmap.org">
   <link rel="stylesheet" href="/style.css">
+  <script>
+    // Données publiques : on lance les requêtes tout de suite, sans attendre le chargement des modules JS (consommées par app.js).
+    window.__nzPre = {};
+    ["entries", "activities"].forEach(function (n) {
+      window.__nzPre[n] = fetch("/api/" + n).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    });
+  </script>
+  <link rel="modulepreload" href="/js/app.js">
+  <link rel="modulepreload" href="/js/common.js">
+  <link rel="modulepreload" href="/js/dayview.js">
+  <link rel="modulepreload" href="/js/comments.js">
+  <link rel="modulepreload" href="/js/analytics.js">
+  <link rel="modulepreload" href="/js/config.js">
+  <link rel="modulepreload" href="/js/stats.js">
+  <link rel="modulepreload" href="/js/seen.js">
+  <link rel="modulepreload" href="/js/recent.js">
+  <link rel="modulepreload" href="/js/wall.js">
+  <link rel="modulepreload" href="/js/replay.js">
+  <link rel="modulepreload" href="/js/todo.js">
 </head>
 <body data-admin="0">
   <header class="top">

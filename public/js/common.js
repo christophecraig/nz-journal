@@ -28,6 +28,21 @@ export async function api(path, { method = "GET", body, headers = {}, auth = tru
   return data;
 }
 
+/**
+ * Réponse d'un préchargement lancé dans le <head> de la page publique (voir index.html), consommée une seule fois.
+ * Renvoie le JSON, ou null si rien n'a été préchargé / si la requête a échoué : l'appelant refait alors un appel normal.
+ */
+export async function takePreloaded(name, win = globalThis.window) {
+  const p = win?.__nzPre?.[name];
+  if (!p) return null;
+  delete win.__nzPre[name]; // une seule fois : les chargements suivants (après modification) doivent être frais
+  try {
+    return (await p) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const mediaUrl = (key) => "/api/media/" + encodeURIComponent(key);
 
 export const esc = (s) =>
