@@ -50,16 +50,15 @@ async function load() {
 function renderTodo() {
   const r = daysToWrite({ start: CONFIG.tripStart, end: CONFIG.tripEnd, today: ymd(new Date()), entries });
   todoDays = new Set(r.todo);
-  const bar = $("#todobar");
-  if (!bar) return;
-  bar.hidden = !r.total;
-  if (!r.total) return;
+  if (!$("#todobar")) return;
+  const next = $("#todonext");
+  // la barre ne disparaît jamais : sa place est réservée dès le chargement pour que la page ne bouge pas
+  next.style.visibility = r.todo.length ? "visible" : "hidden";
+  if (!r.total) { $("#todoline").textContent = "Le voyage n'a pas encore commencé."; return; }
   const done = r.total - r.todo.length;
   $("#todoline").textContent = r.todo.length
     ? `✍ ${done} jour${done > 1 ? "s" : ""} écrit${done > 1 ? "s" : ""} sur ${r.total} · ${r.todo.length} à écrire`
     : `✓ Les ${r.total} jours du voyage sont écrits. Bravo !`;
-  const next = $("#todonext");
-  next.hidden = !r.todo.length;
   if (r.todo.length) {
     next.textContent = `Écrire le ${fmtLong(r.todo[0]).replace(/ \d{4}$/, "")}`;
     next.onclick = () => edit(r.todo[0]);
@@ -91,7 +90,7 @@ function renderTripStats() {
     computeTripStats({ entries, activities, start: CONFIG.tripStart, end: CONFIG.tripEnd, today: ymd(new Date()) })
   );
   box.innerHTML = chips.map((c) => `<li><span aria-hidden="true">${c.icon}</span> ${esc(c.text)}</li>`).join("");
-  box.hidden = !chips.length;
+  box.hidden = !chips.length; // placé en CSS (min-height) tant que les données n'ont pas répondu
 }
 
 /* ---------- Calendrier ---------- */
@@ -169,7 +168,6 @@ const store = safeStorage();
 
 async function refreshCommentsBadge() {
   if (!commentsEnabled()) return;
-  $("#commentstab").hidden = false;
   try {
     const rows = await recentComments();
     const n = countNew(rows, store.get(COMMENTS_SEEN_KEY));
@@ -583,6 +581,7 @@ async function corosInit() {
     } catch (e) {
       line.textContent = "Coros : statut indisponible (" + e.message + ")";
     }
+    line.title = line.textContent; // la ligne est tronquée sur une seule ligne : le texte complet reste accessible
   };
   $("#corosconnect").onclick = async () => {
     try {
@@ -621,23 +620,29 @@ async function corosInit() {
 
 async function boot() {
   initAnalytics({ admin: ADMIN });
+  // Structure complète dès le premier affichage : seules les données arrivent ensuite (rien n'apparaît ni ne disparaît).
+  // Le calendrier du mois courant est dessiné tout de suite, grisé et non cliquable jusqu'à l'arrivée des fiches
+  // (cliquer avant risquerait d'ouvrir un jour existant comme s'il était vide).
+  $("#grid").classList.add("loading");
+  renderCalendar();
   if (ADMIN) {
+    $("#commentstab").hidden = !commentsEnabled();
+    const stats = $("#statslink");
+    if (CONFIG.goatcounter) stats.href = `https://${CONFIG.goatcounter}.goatcounter.com`;
+    else stats.hidden = true;
     await ensureLogin();
     $("#today").onclick = () => edit(ymd(new Date()));
     $("#logout").onclick = () => { setToken(null); location.reload(); };
     corosInit();
-    if (CONFIG.goatcounter) {
-      const a = $("#statslink");
-      a.href = `https://${CONFIG.goatcounter}.goatcounter.com`;
-      a.hidden = false;
-    }
   }
   try {
     await load();
   } catch (e) {
+    $("#grid").classList.remove("loading");
     $("#grid").innerHTML = `<p class="err">Impossible de charger le carnet : ${esc(e.message)}</p>`;
     return;
   }
+  $("#grid").classList.remove("loading");
   pickInitialMonth();
   renderCalendar();
   if (ADMIN) refreshCommentsBadge();

@@ -22,26 +22,26 @@
     <div class="adminbar">
       <button id="today" class="primary">＋ Aujourd'hui</button>
       <a class="btn" href="/">Voir le site</a>
-      <a id="statslink" class="btn" hidden target="_blank" rel="noopener">📊 Statistiques</a>
+      <a id="statslink" class="btn" target="_blank" rel="noopener">📊 Stats</a>
       <button id="logout">Déconnexion</button>
     </div>
   </header>
 
   <main>
     <div class="corosbar">
-      <p id="corosline" class="muted"></p>
+      <p id="corosline" class="muted">Coros…</p>
       <button id="corosconnect" hidden>Connecter Coros</button>
       <button id="corossync" hidden>Synchroniser</button>
     </div>
-    <div id="todobar" class="todobar" hidden>
-      <p id="todoline"></p>
-      <button id="todonext" class="primary" type="button" hidden></button>
+    <div id="todobar" class="todobar">
+      <p id="todoline" class="muted">Jours à écrire…</p>
+      <button id="todonext" class="primary" type="button" style="visibility:hidden">Écrire le jour</button>
     </div>
     <nav class="tabs" aria-label="Vue">
       <button data-tab="cal" class="on">Calendrier</button>
       <button data-tab="map">Carte</button>
       <button data-tab="photos">Photos</button>
-      <button data-tab="comments" id="commentstab" hidden>Commentaires <span id="cbadge" class="badge" hidden></span></button>
+      <button data-tab="comments" id="commentstab">Commentaires <span id="cbadge" class="badge" hidden></span></button>
     </nav>
     <section id="cal">
       <div class="monthnav">
