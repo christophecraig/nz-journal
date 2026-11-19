@@ -33,7 +33,7 @@ const seen = ADMIN ? null : createSeen(); // pastilles « nouveau » : visiteurs
 /* ---------- Données ---------- */
 
 async function load() {
-  const [r, a] = await Promise.all([api("/entries", { auth: ADMIN }), api("/activities").catch(() => ({ activities: [] }))]);
+  const [r, a] = await Promise.all([api("/entries", { auth: ADMIN }), api("/activities", { auth: false }).catch(() => ({ activities: [] }))]);
   entries = r.entries || [];
   byDate = Object.fromEntries(entries.map((e) => [e.date, e]));
   activities = a.activities || [];

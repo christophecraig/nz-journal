@@ -16,7 +16,9 @@ export async function api(path, { method = "GET", body, headers = {}, auth = tru
     payload = JSON.stringify(body);
     h["content-type"] = "application/json";
   }
-  const r = await fetch("/api" + path, { method, headers: h, body: payload, cache: "no-store" });
+  // Requêtes publiques : le cache du navigateur et du CDN est permis (les en-têtes de la réponse décident).
+  // Requêtes authentifiées (admin, brouillons) : jamais de cache.
+  const r = await fetch("/api" + path, { method, headers: h, body: payload, cache: t && auth ? "no-store" : "default" });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     const e = new Error(data.error || "Erreur " + r.status);

@@ -40,11 +40,19 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // globalThis.__CARNET_STORE__ n'existe qu'en test local (store en mémoire).
 const storeFactory = () => globalThis.__CARNET_STORE__ ?? getStore({ name: "carnet", consistency: "strong" });
 
-const json = (data, status = 200) =>
+const json = (data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extraHeaders },
   });
+
+// Lectures publiques : le CDN Netlify garde la réponse 30 s (puis la sert périmée 5 min le temps de la rafraîchir en arrière-plan).
+// Le navigateur, lui, revalide toujours. Un nouveau jour publié est donc visible en moins d'une minute.
+// Les réponses de l'admin (brouillons) ne passent JAMAIS par là : elles restent en `no-store`.
+const PUBLIC_CACHE = {
+  "cache-control": "public, max-age=0, must-revalidate",
+  "netlify-cdn-cache-control": "public, max-age=30, stale-while-revalidate=300",
+};
 
 /* ---------- Auth ---------- */
 
@@ -154,7 +162,9 @@ async function listEntries(s, admin = false) {
   const { blobs } = await s.list({ prefix: "entries/" });
   const all = await Promise.all(blobs.map((b) => s.get(b.key, { type: "json" })));
   const entries = all.filter((e) => e && (admin || !e.draft)).sort((a, b) => a.date.localeCompare(b.date));
-  return json({ entries });
+  if (admin) return json({ entries }); // no-store : contient les brouillons
+  // La réponse publique varie selon l'en-tête Authorization : une requête authentifiée n'est jamais servie depuis cette entrée de cache.
+  return json({ entries }, 200, { ...PUBLIC_CACHE, "netlify-vary": "header=authorization" });
 }
 
 async function putEntry(s, date, req) {
@@ -275,7 +285,7 @@ export default async (req) => {
     const s = storeFactory();
 
     if (res === "activities" && method === "GET" && !id) {
-      return json({ activities: await listActivities(s) });
+      return json({ activities: await listActivities(s) }, 200, PUBLIC_CACHE); // identique pour tous : pas de brouillon ici
     }
 
     if (res === "coros") {

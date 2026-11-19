@@ -68,6 +68,23 @@ test("activités : liste publique, indépendante des fiches", async () => {
   assert.equal((await json(await call("/api/activities"))).activities.length, 2); // intactes
 });
 
+test("cache CDN : lectures publiques seulement, jamais les brouillons de l'admin", async () => {
+  await call("/api/entries/2026-11-19", { method: "PUT", headers: A, body: JSON.stringify({ title: "brouillon", draft: true }) });
+  const pub = await call("/api/entries");
+  assert.match(pub.headers.get("netlify-cdn-cache-control"), /^public, max-age=\d+, stale-while-revalidate=\d+$/);
+  assert.equal(pub.headers.get("netlify-vary"), "header=authorization");
+  assert.equal(pub.headers.get("cache-control"), "public, max-age=0, must-revalidate");
+  assert.equal((await json(pub)).entries.length, 0); // le brouillon n'est pas public
+  const adm = await call("/api/entries", { headers: A });
+  assert.equal(adm.headers.get("cache-control"), "no-store");
+  assert.equal(adm.headers.get("netlify-cdn-cache-control"), null);
+  assert.equal((await json(adm)).entries.length, 1);
+  const acts = await call("/api/activities");
+  assert.match(acts.headers.get("netlify-cdn-cache-control"), /^public, max-age=\d+/);
+  assert.equal((await call("/api/me", { headers: A })).headers.get("cache-control"), "no-store");
+  await call("/api/entries/2026-11-19", { method: "DELETE", headers: A });
+});
+
 test("routes Coros : accès protégé", async () => {
   for (const [m, p] of [["GET", "/api/coros/status"], ["POST", "/api/coros/connect"], ["POST", "/api/coros/sync"]]) {
     assert.equal((await call(p, { method: m })).status, 401, p);
