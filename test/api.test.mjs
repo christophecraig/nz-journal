@@ -34,6 +34,9 @@ test("médias : envoi, types, taille, Range", async () => {
   assert.equal(part.status, 206);
   assert.equal(part.headers.get("content-range"), "bytes 10-19/1000");
   assert.equal((await call("/api/media/" + key, { headers: { range: "bytes=5000-" } })).status, 416);
+  assert.match((await call("/api/media/" + key)).headers.get("netlify-cdn-cache-control"), /immutable/);
+  assert.equal(part.headers.get("netlify-cdn-cache-control"), null); // pas de cache CDN pour les morceaux (206)
+  assert.equal((await call("/api/media/" + "0".repeat(8) + "-0000-0000-0000-" + "0".repeat(12) + ".jpg")).headers.get("netlify-cdn-cache-control"), null); // 404 jamais mis en cache
   assert.equal((await call("/api/media/../etc")).status, 404);
 });
 

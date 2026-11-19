@@ -235,7 +235,12 @@ async function serveMedia(s, key, req) {
   const range = req.headers.get("range");
   const m = range && /^bytes=(\d*)-(\d*)$/.exec(range.trim());
   if (!m || (m[1] === "" && m[2] === "")) {
-    return new Response(buf, { status: 200, headers: { ...base, "content-length": String(total) } });
+    // Réponse complète seulement : le CDN la garde (clé = UUID, contenu immuable), donc plus d'invocation de fonction aux visites suivantes.
+    // Les réponses Range (206) ne sont volontairement pas mises en cache par le CDN.
+    return new Response(buf, {
+      status: 200,
+      headers: { ...base, "content-length": String(total), "netlify-cdn-cache-control": "public, max-age=31536000, immutable, durable" },
+    });
   }
   let start = m[1] === "" ? null : Number(m[1]);
   let end = m[2] === "" ? null : Number(m[2]);
