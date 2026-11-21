@@ -9,6 +9,7 @@ const CLIENT_NAME = "Carnet de bord NZ";
 const RUN_CODES = [100, 101, 102, 103]; // course extérieure, tapis, trail, piste
 const KIND_BY_CODE = { 100: "run", 101: "run", 102: "trail", 103: "run" };
 const PENDING_TTL_MS = 15 * 60 * 1000;
+const IN_PROGRESS_MARGIN_MS = 3 * 60 * 1000; // marge après la fin avant import (le FIT n'est pas toujours prêt tout de suite)
 const MAX_FIT_BYTES = 8 * 1024 * 1024;
 
 const region = () => (process.env.COROS_REGION || "eu").toLowerCase().replace(/[^a-z]/g, "");
@@ -245,6 +246,8 @@ export function parseRecords(text) {
     if (!date || !id || !sportType) continue;
     let startTs = num(/startTimestamp=(\d+)/, b);
     if (startTs && startTs > 1e12) startTs = Math.round(startTs / 1000);
+    let endTs = num(/endTimestamp=(\d+)/, b);
+    if (endTs && endTs > 1e12) endTs = Math.round(endTs / 1000);
     const coords = /Start Coordinates:\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/.exec(b);
     const durationSec = toSeconds(/Duration:\s*([\d:]+)/.exec(b)?.[1] ?? "");
     const distanceKm = num(/Distance:\s*([\d.]+)\s*km/, b);
@@ -255,6 +258,7 @@ export function parseRecords(text) {
       date,
       sportType,
       startTs,
+      endTs,
       location: (/Location:\s*(.+)/.exec(b)?.[1] ?? "").trim(),
       start: coords ? { lat: Number(coords[1]), lng: Number(coords[2]) } : null,
       durationSec,
@@ -317,6 +321,7 @@ async function buildActivity(mcp, rec, fetchImpl) {
     kind: KIND_BY_CODE[rec.sportType] || "run",
     indoor: rec.sportType === 101,
     startTs: rec.startTs,
+    endTs: rec.endTs,
     durationSec: rec.durationSec,
     distanceKm: rec.distanceKm,
     paceSecPerKm: rec.paceSecPerKm,
@@ -358,7 +363,11 @@ async function runSync(store, token, { days, maxNew, now, fetchImpl }) {
   const warnings = [];
   for (const rec of records) {
     if (rec.date < floor || !/^\d+$/.test(rec.id) || !RUN_CODES.includes(rec.sportType)) continue;
-    if (await store.get(`activities/${rec.id}`, { type: "json" })) continue;
+    // Course encore en cours chez Coros : distance et durée partielles, pas de FIT. On attend qu'elle soit terminée.
+    if (rec.endTs && rec.endTs * 1000 > now.getTime() - IN_PROGRESS_MARGIN_MS) continue;
+    const existing = await store.get(`activities/${rec.id}`, { type: "json" });
+    // Déjà importée avec les mêmes chiffres : rien à faire. Sinon (importée trop tôt) on la réimporte.
+    if (existing && existing.distanceKm === rec.distanceKm && existing.durationSec === rec.durationSec) continue;
     if (added >= maxNew) break;
     const activity = await buildActivity(mcp, rec, fetchImpl);
     await store.setJSON(`activities/${rec.id}`, activity);

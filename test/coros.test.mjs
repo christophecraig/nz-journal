@@ -37,7 +37,7 @@ test("parseRecords lit les enregistrements", () => {
   const r = parseRecords(RECORDS());
   assert.equal(r.length, 3);
   assert.deepEqual(r[0], {
-    id: "111111111111111111", date: "2026-11-18", sportType: 102, startTs: 1794951973,
+    id: "111111111111111111", date: "2026-11-18", sportType: 102, startTs: 1794951973, endTs: 1794954308,
     location: "Sentier Test", start: { lat: -41.1, lng: 175.1 }, durationSec: 2335, distanceKm: 6.67,
     paceSecPerKm: 350, avgHr: 140, calories: 382,
   });
@@ -205,6 +205,29 @@ test("syncCoros est idempotent et respecte maxNew", async () => {
   assert.equal((await syncCoros(store, { now: NOW, maxNew: 5 })).added, 1);
   assert.equal((await syncCoros(store, { now: NOW })).added, 0);
   assert.equal((await listActivities(store)).length, 2);
+});
+
+test("syncCoros ignore une course encore en cours chez Coros", async () => {
+  const { store } = await connected();
+  const endMs = 1794954308 * 1000;
+  // 1 min après la fin du trail du 18 : encore dans la marge, seule la course du 16 est importée
+  const r = await syncCoros(store, { now: new Date(endMs + 60000) });
+  assert.equal(r.added, 1);
+  assert.equal(await store.get("activities/111111111111111111", { type: "json" }), null);
+  // plus tard, elle est importée avec ses chiffres définitifs
+  assert.equal((await syncCoros(store, { now: new Date(endMs + 10 * 60000) })).added, 1);
+  assert.equal((await store.get("activities/111111111111111111", { type: "json" })).distanceKm, 6.67);
+});
+
+test("syncCoros réimporte une course importée trop tôt (chiffres partiels)", async () => {
+  const { store } = await connected();
+  await syncCoros(store, { now: NOW });
+  const key = "activities/111111111111111111";
+  await store.setJSON(key, { ...(await store.get(key, { type: "json" })), distanceKm: 1.2, durationSec: 400 });
+  assert.equal((await syncCoros(store, { now: NOW })).added, 1);
+  const a = await store.get(key, { type: "json" });
+  assert.equal([a.distanceKm, a.durationSec].join(), "6.67,2335");
+  assert.equal((await syncCoros(store, { now: NOW })).added, 0);
 });
 
 test("unwrapText décode une chaîne JSON et laisse le texte brut intact", () => {
