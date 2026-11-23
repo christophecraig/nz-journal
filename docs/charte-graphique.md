@@ -55,7 +55,7 @@ Deux familles seulement.
 - Titres en Space Mono 700, casse normale, interlignage serré (~1,2).
 - Récit : Source Serif 4, 15–17 px, interlignage ~1,6.
 - Remplace l'existant : variables `--serif` (Iowan/Palatino/Georgia) et `--sans` (system-ui) à supprimer.
-- Hébergement des polices : à décider (voir §10). Prévoir `font-display: swap` et un repli `ui-monospace` / `Georgia`.
+- Polices **hébergées avec le site** dans `public/fonts/` (sous-ensemble latin, licence OFL jointe), déclarées par `@font-face` avec `font-display: swap`, repli `ui-monospace` / `Georgia`. Aucun appel à Google Fonts.
 
 ## 5. Formes et filets
 
@@ -67,12 +67,13 @@ Deux familles seulement.
 
 - **En-tête** : logo à gauche (inchangé), kicker « CARNET DE BORD » en Space Mono (+ repère de coordonnées optionnel), titre « Nouvelle-Zélande » en Space Mono 700. Un filet vert profond en dessous.
 - **Navigation par onglets** (Calendrier / Carte / Photos) : Space Mono, majuscules, onglet actif en gras avec soulignement ambre de 2 px ; séparée du contenu par un filet.
-- **Calendrier** : grille à filets, coins droits. Jour écrit = **case pleine vert profond**, numéro en crème. Jours sans entrée : fond crème, numéro vert profond. Jour du voyage en cours et jours à écrire (admin) : marquage à définir (voir §10).
+- **Calendrier** : grille à filets, coins droits. Jour écrit = **case pleine vert profond**, numéro en crème. Jours sans entrée : fond crème, numéro vert profond. Marquages : **aujourd'hui** = numéro sur aplat ambre ; **nouveau commentaire / nouveauté** = point ambre dans la case ; **jour à écrire** (admin) = contour pointillé terre, fond surface ; **brouillon** = contour pointillé.
+- **Erreurs** : rouge bordeaux `#7A1F2B` (clair), `#E58A96` (sombre, dérivé). Jamais l'ambre ni la terre pour une erreur.
 - **Étiquette de section** (Repas, Bar, Activité) : texte Space Mono majuscules 11 px dans un cadre 1,5 px vert profond, fond transparent.
 - **Données d'une journée** : ligne Space Mono en terre, séparateur « · » (ex. `J12 · 08.12 · 1 967 m · 19,4 km`).
-- **Boutons** : coins droits, contour 1,5 px vert profond, Space Mono ; bouton principal = fond vert profond + texte crème ; pas d'effet de survol décalé (`translate`), plutôt inversion de couleurs.
+- **Boutons** : coins droits, contour 1,5 px vert profond, Space Mono ; bouton principal = fond vert profond + texte crème ; survol = contour terre (pas de déplacement), focus clavier = contour ambre 2 px.
 - **Photos, mobile** : pleine largeur, sans bord, légende en Space Mono dessous (ex. `IMG_0412 · 08.12 · 06:42 · Tongariro`). À confirmer par Christophe : dérivé de « pas de mosaïque sur mobile, trop petit ».
-- **Photos, ordinateur** : mosaïque serrée, quasi sans marge (2 px), coins droits. C'est le choix explicite de Christophe.
+- **Photos, ordinateur** : mosaïque serrée, quasi sans marge (2 px), coins droits ; la légende s'affiche en bandeau au survol. C'est le choix explicite de Christophe.
 - **Visionneuse plein écran** : fond sombre conservé, boutons à coins droits.
 
 ## 7. Ton visuel
@@ -82,8 +83,9 @@ Frais, dynamique, précis : un carnet de terrain plutôt qu'un album. Peu d'orne
 ## 8. Mise en œuvre technique
 
 - Tout passe par des variables CSS en tête de `public/style.css` (`:root`, puis un bloc `@media (prefers-color-scheme: dark)` qui ne redéfinit que ces variables). Aucune couleur ni police en dur ailleurs dans le fichier.
-- Noms de variables conseillés : `--vert`, `--creme`, `--ambre`, `--terre`, `--texte`, `--discret`, `--surface`, `--fond`, `--filet`, `--mono`, `--serif`.
-- Mettre à jour aussi : `<meta name="theme-color">` (`index.html`, `admin.html`, actuellement `#2f6f55`) et `theme_color` du `manifest.webmanifest` vers `#12403A`.
+- Variables en place : `--fond`, `--surface`, `--texte`, `--discret`, `--titre`, `--filet`, `--plein` / `--sur-plein` (aplats forts), `--ambre` / `--sur-ambre`, `--terre`, `--erreur`, `--mono`, `--serif`. En mode sombre, `--titre` et `--filet` deviennent crème et `--plein` devient le vert d'appoint `#3FB59A`.
+- Couleurs de tracés de la carte (JS, `app.js` et `dayview.js`) : `#12403A` et `#B5651D`, à garder alignées.
+- `theme-color` (`index.html`, `admin.html`) et `theme_color` du manifest valent `#12403A`.
 - Tests : `npm test` doit rester vert ; une refonte visuelle ne doit modifier aucun test de comportement.
 - Ne pas casser les sélecteurs utilisés par le JS (classes `.cell`, `.has`, `.today`, `.todo`, etc.) : changer leur apparence, pas leur nom.
 
@@ -94,8 +96,7 @@ Frais, dynamique, précis : un carnet de terrain plutôt qu'un album. Peu d'orne
 
 ## 10. Questions ouvertes (non traitées dans le recueil)
 
-- Couleur d'erreur / danger (aujourd'hui l'argile `#c5603a`) et marquage « aujourd'hui », « nouveau commentaire », « à écrire » : à définir.
-- Formulaires et écrans admin : même langage visuel, détail à valider sur pièces.
-- Hébergement des polices : Google Fonts (simple) ou fichiers hébergés avec le site (plus rapide, sans requête tierce, plus cohérent avec les pages Confidentialité). Recommandation : héberger.
 - Image de partage `og-image.png` et icônes PWA : à régénérer si leurs couleurs diffèrent de la palette.
 - Style des tuiles de carte : inchangé pour l'instant.
+- Polices au format WOFF (zlib) faute d'outil WOFF2 : à convertir en WOFF2 pour gagner environ 30 % de poids si un outil devient disponible.
+- Appliqué le 23 nov. 2026 mais jamais vu à l'écran avant mise en ligne : relire le rendu réel (mobile et ordinateur) et ajuster.

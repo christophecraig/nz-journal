@@ -93,7 +93,7 @@ export function initDayMaps(root, e, acts = []) {
         const m = mk(mini);
         const pts = places.map((p) => [p.lat, p.lng]);
         const line = dayLine(e);
-        if (line) L.polyline(line.pts, { color: "#2f6f55", weight: 4, opacity: 0.8, ...(line.routed ? {} : { dashArray: "6 6" }) }).addTo(m);
+        if (line) L.polyline(line.pts, { color: "#12403A", weight: 4, opacity: 0.8, ...(line.routed ? {} : { dashArray: "6 6" }) }).addTo(m);
         places.forEach((p, n) =>
           L.marker([p.lat, p.lng], { icon: L.divIcon({ className: "", html: `<span class="pin map">${n + 1}</span>`, iconSize: [26, 26], iconAnchor: [13, 13] }) })
             .addTo(m)
@@ -106,9 +106,9 @@ export function initDayMaps(root, e, acts = []) {
         const a = acts[Number(el.dataset.i)];
         if (!a?.track?.length) continue;
         const m = mk(el);
-        const line = L.polyline(a.track, { color: "#c5603a", weight: 4 }).addTo(m);
-        L.circleMarker(a.track[0], { radius: 6, color: "#2f6f55", fillColor: "#2f6f55", fillOpacity: 1 }).addTo(m);
-        L.circleMarker(a.track.at(-1), { radius: 6, color: "#c5603a", fillColor: "#fff", fillOpacity: 1 }).addTo(m);
+        const line = L.polyline(a.track, { color: "#B5651D", weight: 4 }).addTo(m);
+        L.circleMarker(a.track[0], { radius: 6, color: "#12403A", fillColor: "#12403A", fillOpacity: 1 }).addTo(m);
+        L.circleMarker(a.track.at(-1), { radius: 6, color: "#B5651D", fillColor: "#fff", fillOpacity: 1 }).addTo(m);
         m.fitBounds(line.getBounds(), { padding: [20, 20] });
       }
     } catch {

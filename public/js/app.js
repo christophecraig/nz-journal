@@ -278,11 +278,11 @@ async function showBigMap() {
     const latlngs = points.map((p) => [p.lat, p.lng]);
     for (const e of entries) {
       const line = dayLine(e);
-      if (line) L.polyline(line.pts, { color: "#2f6f55", weight: 3, opacity: 0.7, ...(line.routed ? {} : { dashArray: "6 6" }) }).addTo(staticLayer);
+      if (line) L.polyline(line.pts, { color: "#12403A", weight: 3, opacity: 0.7, ...(line.routed ? {} : { dashArray: "6 6" }) }).addTo(staticLayer);
       if (line?.routed) latlngs.push(...line.pts);
     }
     for (const a of tracks) {
-      L.polyline(a.track, { color: "#c5603a", weight: 4, opacity: 0.9 })
+      L.polyline(a.track, { color: "#B5651D", weight: 4, opacity: 0.9 })
         .addTo(staticLayer)
         .bindPopup(`<strong>${esc(actTitle(a))}</strong><br><a href="${dayUrl(a.date)}" data-day="${a.date}">${esc(fmtLong(a.date))}</a>`);
       latlngs.push(...a.track);
@@ -341,10 +341,10 @@ function stopReplay() {
 function drawFrame(f) {
   const L = bigL;
   for (const l of f.lines) {
-    L.polyline(l.pts, { color: l.kind === "run" ? "#c5603a" : "#2f6f55", weight: l.kind === "run" ? 4 : 3, opacity: 0.85, ...(l.routed ? {} : { dashArray: "6 6" }) }).addTo(replay.layer);
+    L.polyline(l.pts, { color: l.kind === "run" ? "#B5651D" : "#12403A", weight: l.kind === "run" ? 4 : 3, opacity: 0.85, ...(l.routed ? {} : { dashArray: "6 6" }) }).addTo(replay.layer);
   }
   for (const m of f.markers) {
-    L.circleMarker([m.lat, m.lng], { radius: 6, color: "#fff", weight: 2, fillColor: "#2f6f55", fillOpacity: 1 })
+    L.circleMarker([m.lat, m.lng], { radius: 6, color: "#fff", weight: 2, fillColor: "#12403A", fillOpacity: 1 })
       .addTo(replay.layer)
       .bindPopup(`<strong>${esc(m.name)}</strong><br><a href="${dayUrl(f.date)}" data-day="${f.date}">${esc(fmtLong(f.date))}</a>`);
   }
