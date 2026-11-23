@@ -12,7 +12,7 @@ Si une décision ici est modifiée, mettre ce fichier à jour dans le même comm
 - Changer l'apparence ne change jamais les fonctionnalités ni les comportements : le site marche bien, on ne touche ni à la logique JS, ni à l'API, ni aux parcours.
 - Direction : « Terrain et carte » (esprit planche topographique), ambiance fraîche et dynamique.
 - Les photos sont les vedettes ; le texte du récit reste confortable à lire.
-- Coins droits partout (`border-radius: 0`) et filets au lieu d'ombres. Pas de dégradé décoratif, pas d'ombre portée, pas de rotation « polaroid ».
+- Coins droits partout (`border-radius: 0`), sauf le calendrier (voir §6) et filets au lieu d'ombres. Pas de dégradé décoratif, pas d'ombre portée, pas de rotation « polaroid ».
 - Mobile d'abord : Christophe consulte et publie depuis son téléphone.
 
 ## 2. Couleurs (mode clair)
@@ -67,7 +67,7 @@ Deux familles seulement.
 
 - **En-tête** : logo à gauche (inchangé), kicker « CARNET DE BORD » en Space Mono (+ repère de coordonnées optionnel), titre « Nouvelle-Zélande » en Space Mono 700. Un filet vert profond en dessous.
 - **Navigation par onglets** (Calendrier / Carte / Photos) : Space Mono, majuscules, onglet actif en gras avec soulignement ambre de 2 px ; séparée du contenu par un filet.
-- **Calendrier** : grille à filets, coins droits. Jour écrit = **case pleine vert profond**, numéro en crème. Jours sans entrée : fond crème, numéro vert profond. Marquages : **aujourd'hui** = numéro sur aplat ambre ; **nouveau commentaire / nouveauté** = point ambre dans la case ; **jour à écrire** (admin) = contour pointillé terre, fond surface ; **brouillon** = contour pointillé.
+- **Calendrier** (exception assumée aux coins droits, jugé trop anguleux et agressif le 23 nov.) : cases séparées par 5 px, coins légèrement arrondis (8 px, 6 px sur mobile), bordure fine 1 px très douce (`--filet-doux`, filet à 22 %), sans contour épais. Jour écrit = **case pleine vert profond**, numéro en crème. Jours sans entrée : fond crème, numéro vert profond. Marquages : **aujourd'hui** = numéro sur aplat ambre ; **nouveau commentaire / nouveauté** = point ambre dans la case ; **jour à écrire** (admin) = contour pointillé terre, fond surface ; **brouillon** = contour pointillé.
 - **Erreurs** : rouge bordeaux `#7A1F2B` (clair), `#E58A96` (sombre, dérivé). Jamais l'ambre ni la terre pour une erreur.
 - **Étiquette de section** (Repas, Bar, Activité) : texte Space Mono majuscules 11 px dans un cadre 1,5 px vert profond, fond transparent.
 - **Données d'une journée** : ligne Space Mono en terre, séparateur « · » (ex. `J12 · 08.12 · 1 967 m · 19,4 km`).
