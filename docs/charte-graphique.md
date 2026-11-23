@@ -12,7 +12,7 @@ Si une décision ici est modifiée, mettre ce fichier à jour dans le même comm
 - Changer l'apparence ne change jamais les fonctionnalités ni les comportements : le site marche bien, on ne touche ni à la logique JS, ni à l'API, ni aux parcours.
 - Direction : « Terrain et carte » (esprit planche topographique), ambiance fraîche et dynamique.
 - Les photos sont les vedettes ; le texte du récit reste confortable à lire.
-- Coins droits partout (`border-radius: 0`), sauf le calendrier (voir §6) et filets au lieu d'ombres. Pas de dégradé décoratif, pas d'ombre portée, pas de rotation « polaroid ».
+- Pas de bordure autour des composants (boutons, champs, cartes, cartes de carte) : on distingue par un aplat doux (`--aplat`) ou une surface légèrement plus claire. Coins très légèrement arrondis (4 px), 8 px pour les cases du calendrier. Pas d'ombres. Pas de dégradé décoratif, pas d'ombre portée, pas de rotation « polaroid ».
 - Mobile d'abord : Christophe consulte et publie depuis son téléphone.
 
 ## 2. Couleurs (mode clair)
@@ -59,8 +59,8 @@ Deux familles seulement.
 
 ## 5. Formes et filets
 
-- Aucun arrondi (`border-radius: 0`), y compris boutons, champs, cartes, pastilles, onglets. Exceptions : pastilles-repères de la carte (cercles), si elles restent circulaires.
-- Filets pleins vert profond : 1 px pour les séparations, 1,5 px pour les contours de composants (cartes, étiquettes, boutons).
+- Arrondi unique de 4 px (boutons, champs, cartes, pastilles de chiffres, cartes de carte). Photos en mosaïque et pleine largeur : coins droits. Repères de la carte et point « nouveau » : cercles.
+- **Aucun contour de composant** (décision du 23 nov. : bordures jugées « méchantes » et vieillottes). Seuls autorisés : le filet 1 px sous l'en-tête et sous les onglets, les séparations très douces (`--filet-doux`), et un liseré gauche de 4 px pour signaler (course Coros terre, brouillon ambre, échec d'envoi bordeaux).
 - Pas d'ombre portée. Le relief vient des filets et des aplats.
 
 ## 6. Composants
@@ -69,9 +69,10 @@ Deux familles seulement.
 - **Navigation par onglets** (Calendrier / Carte / Photos) : Space Mono, majuscules, onglet actif en gras avec soulignement ambre de 2 px ; séparée du contenu par un filet.
 - **Calendrier** (exception assumée aux coins droits, jugé trop anguleux et agressif le 23 nov.) : cases séparées par 5 px, coins légèrement arrondis (8 px, 6 px sur mobile), bordure fine 1 px très douce (`--filet-doux`, filet à 22 %), sans contour épais. Jour écrit = **case pleine vert profond**, numéro en crème. Jours sans entrée : fond crème, numéro vert profond. Marquages : **aujourd'hui** = numéro sur aplat ambre ; **nouveau commentaire / nouveauté** = point ambre dans la case ; **jour à écrire** (admin) = contour pointillé terre, fond surface ; **brouillon** = contour pointillé.
 - **Erreurs** : rouge bordeaux `#7A1F2B` (clair), `#E58A96` (sombre, dérivé). Jamais l'ambre ni la terre pour une erreur.
-- **Étiquette de section** (Repas, Bar, Activité) : texte Space Mono majuscules 11 px dans un cadre 1,5 px vert profond, fond transparent.
+- **Étiquette de section** (Repas, Bar, Activité) : texte Space Mono majuscules 11 px sur fond `--aplat`, sans cadre.
 - **Données d'une journée** : ligne Space Mono en terre, séparateur « · » (ex. `J12 · 08.12 · 1 967 m · 19,4 km`).
-- **Boutons** : coins droits, contour 1,5 px vert profond, Space Mono ; bouton principal = fond vert profond + texte crème ; survol = contour terre (pas de déplacement), focus clavier = contour ambre 2 px.
+- **Boutons** : sans bordure, fond `--aplat`, texte vert profond, Space Mono, coins 4 px ; bouton principal = fond vert profond + texte crème ; survol = léger assombrissement (`--hover-filter`), pas de déplacement ; focus clavier = contour ambre 2 px.
+- **Champs** : sans bordure, fond `--aplat`, coins 4 px. **Cartes** (commentaire, course, note vocale) : fond `--surface`, sans bordure.
 - **Photos, mobile** : pleine largeur, sans bord, légende en Space Mono dessous (ex. `IMG_0412 · 08.12 · 06:42 · Tongariro`). À confirmer par Christophe : dérivé de « pas de mosaïque sur mobile, trop petit ».
 - **Photos, ordinateur** : mosaïque serrée, quasi sans marge (2 px), coins droits ; la légende s'affiche en bandeau au survol. C'est le choix explicite de Christophe.
 - **Visionneuse plein écran** : fond sombre conservé, boutons à coins droits.
@@ -83,7 +84,7 @@ Frais, dynamique, précis : un carnet de terrain plutôt qu'un album. Peu d'orne
 ## 8. Mise en œuvre technique
 
 - Tout passe par des variables CSS en tête de `public/style.css` (`:root`, puis un bloc `@media (prefers-color-scheme: dark)` qui ne redéfinit que ces variables). Aucune couleur ni police en dur ailleurs dans le fichier.
-- Variables en place : `--fond`, `--surface`, `--texte`, `--discret`, `--titre`, `--filet`, `--plein` / `--sur-plein` (aplats forts), `--ambre` / `--sur-ambre`, `--terre`, `--erreur`, `--mono`, `--serif`. En mode sombre, `--titre` et `--filet` deviennent crème et `--plein` devient le vert d'appoint `#3FB59A`.
+- Variables en place : `--aplat`, `--fond`, `--surface`, `--texte`, `--discret`, `--titre`, `--filet`, `--plein` / `--sur-plein` (aplats forts), `--ambre` / `--sur-ambre`, `--terre`, `--erreur`, `--mono`, `--serif`. En mode sombre, `--titre` et `--filet` deviennent crème et `--plein` devient le vert d'appoint `#3FB59A`.
 - Couleurs de tracés de la carte (JS, `app.js` et `dayview.js`) : `#12403A` et `#B5651D`, à garder alignées.
 - `theme-color` (`index.html`, `admin.html`) et `theme_color` du manifest valent `#12403A`.
 - Tests : `npm test` doit rester vert ; une refonte visuelle ne doit modifier aucun test de comportement.
