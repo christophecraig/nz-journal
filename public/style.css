@@ -407,6 +407,8 @@ legend { font-family: var(--mono); font-weight: 700; padding: 0 0.4rem; }
 #mpmap { flex: 1; }
 .editor label.check { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.6rem 0; font-weight: 400; font-size: 0.9rem; }
 .editor label.check input { width: auto; margin: 0.2rem 0 0; padding: 0; flex: none; }
+/* iOS zoome la page au focus d'un champ dont la police fait moins de 16 px, et la laisse décalée */
+@media (max-width: 720px) { .editor input:not([type=file]):not([type=checkbox]), .editor textarea { font-size: 16px; } }
 
 /* Les panneaux internes de Leaflet (z-index jusqu'à 1000) ne doivent pas passer au-dessus de la fiche du jour (50) */
 .leaflet-container { isolation: isolate; }
