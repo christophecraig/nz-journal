@@ -31,7 +31,7 @@ export function renderDayArticle(e, acts = [], { extra = "" } = {}) {
         ["Allure", a.paceSecPerKm ? `${fmtPace(a.paceSecPerKm)} /km` : null],
         ["Dénivelé +", a.elevGain != null ? `${a.elevGain} m` : null],
         ["FC moy.", a.avgHr ? `${a.avgHr} bpm` : null],
-        ["Cadence", a.cadence ? `${a.cadence} spm` : null],
+        ["Cadence", a.cadence ? `${a.cadence} ppm` : null],
       ].filter(([, v]) => v);
       return `<section class="run">
         <h3>🏃 ${esc(actLabel(a))}${a.location ? ` <span class="muted">· ${esc(a.location)}</span>` : ""}</h3>
