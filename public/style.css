@@ -329,6 +329,8 @@ audio { width: 100%; }
   font-weight: 400;
 }
 .editor textarea { resize: vertical; line-height: 1.5; }
+/* iOS Safari donne au champ date une largeur minimale native qui ignore width: 100% et fait déborder la fiche */
+.editor input[type=date] { display: block; -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; min-height: 2.6rem; text-align: left; }
 fieldset { border: 1px solid var(--filet-doux); border-radius: 4px; padding: 0.5rem 0.9rem 0.9rem; margin: 1.25rem 0; }
 legend { font-family: var(--mono); font-weight: 700; padding: 0 0.4rem; }
 .fold { border: 1px solid var(--filet-doux); border-radius: 4px; padding: 0 0.9rem; margin: 1.25rem 0; }
